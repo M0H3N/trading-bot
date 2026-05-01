@@ -1,0 +1,8 @@
+environment:
+  QUEUE_CONNECTION: sync
+ingress:
+  hosts:
+    - host: wallgold-api-1.staging.k8s.wallex.dev
+      urlEnvironmentName: APP_URL
+      paths:
+        - /

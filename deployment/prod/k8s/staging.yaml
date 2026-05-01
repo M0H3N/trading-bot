@@ -1,0 +1,81 @@
+environment:
+  APP_ENV: staging
+  APP_DEBUG: true
+  QUEUE_CONNECTION: deferred
+
+secret:
+  APP_KEY: base64:UeVXYfOdy0xVXwE8189pQFM9JCFl1Y7CJouUr89BtAk=
+  JWT_SECRET: AS4Gq0z5lZFdr8wsvOLcPYorxzennFXmkwSeEkeKQQvG6AMrcFBycCvlvKKH3n0E
+
+php:
+  opcache: disabled
+
+securityContext:
+  readOnlyRootFilesystem: false
+  runAsUser: 1000
+  runAsGroup: 1000
+
+web:
+  tolerations:
+    - key: "dedicated"
+      operator: "Equal"
+      value: "wallgold"
+      effect: "NoSchedule"
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: "dedicated"
+                operator: "In"
+                values:
+                  - "wallgold"
+  frankenphp:
+    resources:
+      requests:
+        cpu: "500m"
+        memory: "512M"
+      limits:
+        cpu: "1000m"
+        memory: "1024M"
+
+workers:
+  definitions:
+  defaults:
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "200M"
+      limits:
+        cpu: "100m"
+        memory: "200M"
+    tolerations:
+      - key: "dedicated"
+        operator: "Equal"
+        value: "wallgold"
+        effect: "NoSchedule"
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+                - key: "dedicated"
+                  operator: "In"
+                  values:
+                    - "wallgold"
+
+scheduler:
+  tolerations:
+    - key: "dedicated"
+      operator: "Equal"
+      value: "wallgold"
+      effect: "NoSchedule"
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: "dedicated"
+                operator: "In"
+                values:
+                  - "wallgold"

@@ -1,0 +1,47 @@
+services:
+  php-fpm:
+    container_name: charity-php-fpm
+    build:
+      context: .
+      dockerfile: deployment/dev/php/Dockerfile
+      target: development
+    volumes:
+      - .:/srv/app
+    environment:
+      - PHP_IDE_CONFIG=serverName=charity
+    depends_on:
+      - mysql
+      - redis
+  nginx:
+    container_name: charity-nginx
+    build:
+      context: .
+      dockerfile: deployment/dev/nginx/Dockerfile
+    ports:
+      - "8083:80"
+    volumes:
+      - .:/srv/app
+    depends_on:
+      - php-fpm
+  mysql:
+    container_name: charity-db
+    image: mysql:8
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE:-charity}
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-charity}
+      MYSQL_USER: ${DB_USERNAME:-charity}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-charity}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    ports:
+      - "4406:3306"
+  redis:
+    container_name: charity-redis
+    image: redis:alpine
+    restart: unless-stopped
+    ports:
+      - "6390:6379"
+
+volumes:
+  mysql_data:

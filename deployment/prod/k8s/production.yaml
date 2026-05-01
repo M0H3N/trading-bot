@@ -1,0 +1,72 @@
+environment:
+  SENTRY_ENVIRONMENT: production
+  OTEL_RESOURCE_ATTRIBUTES: deployment.environment=production
+
+ingress:
+  hosts:
+    - host: api.wallgold.ir
+      urlEnvironmentName: APP_URL
+      paths:
+        - /
+  whitelistedPaths:
+    metrics:
+      path: /metrics
+      whitelistSourceRange: 127.0.0.1/32
+    internal:
+      path: /internal
+      whitelistSourceRange: 127.0.0.1/32
+
+service:
+  annotations:
+    prometheus.io/scrape: "false"
+    prometheus.io/path: "/metrics"
+
+workers:
+  definitions:
+    horizon:
+      replicaCount: 1
+      arguments: php artisan horizon
+    sms:
+      replicaCount: 2
+      arguments: php artisan queue:work --queue=critical-sms
+    monitoring:
+      replicaCount: 1
+      arguments: php artisan queue:work --queue=app-monitoring
+    http-logger:
+      replicaCount: 4
+      arguments: php artisan queue:work --queue=http-logs
+  defaults:
+    resources:
+      requests:
+        cpu: "1000m"
+        memory: "4048M"
+      limits:
+        cpu: "6000m"
+        memory: "16384M"
+
+php:
+  configs: |
+    memory_limit = 2048M
+    upload_max_filesize = 50M
+    post_max_size = 50M
+    expose_php = Off
+  opcache: extreme # can be disabled, normal or extreme
+  newrelic:
+    enabled: false
+    appName: wallgold
+    licenseKey: eu01xxb68adc1a9beb3dae9b51a23f55FFFFNRAL
+web:
+  replicaCount: 35
+  frankenphp:
+    resources:
+      requests:
+        cpu: "1000m"
+        memory: "1024M"
+      limits:
+        cpu: "2000m"
+        memory: "2048M"
+
+securityContext:
+  readOnlyRootFilesystem: true
+  runAsUser: 1000
+  runAsGroup: 1000

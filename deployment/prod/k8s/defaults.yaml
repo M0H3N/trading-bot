@@ -1,0 +1,184 @@
+environment:
+  APP_ENV: production
+  APP_NAME: Wallgold
+  APP_DEBUG: false
+  APP_TIMEZONE: UTC
+  BROADCAST_DRIVER: redis
+  DB_CONNECTION: mysql
+  CACHE_STORE: redis
+  QUEUE_CONNECTION: redis
+  REDIS_HOST: redis-master
+  REDIS_PORT: 6379
+  LOG_CHANNEL: stdout
+  SESSION_DRIVER: redis
+  STDOUT_STREAM: "php://stderr"
+  SENTRY_ENVIRONMENT:
+
+  OTEL_SERVICE_NAME: wallgold-backend
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://elastic-apm-agent.elastic-apm:8200
+  OTEL_PHP_AUTOLOAD_ENABLED: false
+  OTEL_TRACES_EXPORTER: otlp
+  OTEL_METRICS_EXPORTER: otlp
+  OTEL_LOGS_EXPORTER: otlp
+  OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+  OTEL_TRACES_SAMPLER: traceidratio
+  OTEL_TRACES_SAMPLER_ARG: "0.1"
+
+
+
+secret:
+  JIBIT_SECRET:
+  JIBIT_KEY:
+  JIBIT_KYC_SECRET:
+  JIBIT_KYC_KEY:
+  JIBIT_GATEWAY_SECRET_KEY:
+  JIBIT_GATEWAY_API_KEY:
+  JIBIT_INQUIRY_SERVICE_SECRET:
+  JIBIT_INQUIRY_SERVICE_KEY:
+  JIBIT_DIRECT_KEY:
+  JIBIT_DIRECT_SECRET:
+  JIBIT_GATEWAY_KEY:
+  JIBIT_GATEWAY_SECRET:
+  SAMAN_TERMINAL_ID:
+  SAMAN_MERCHANT_ID:
+  TOMAN_TOKEN_BASE_URL:
+  TOMAN_GATEWAY_CLIENT_ID:
+  TOMAN_GATEWAY_CLIENT_SECRET:
+  TOMAN_GATEWAY_USERNAME:
+  TOMAN_GATEWAY_PASSWORD:
+  TOMAN_IPG_BASE_URL:
+  TOMAN_SETTLEMENT_BASE_URL:
+  TOMAN_PID_BASE_URL:
+  TOMAN_DIRECT_PAYMENT_FEE:
+  ASSET_MARKET_DATA_PERSIAN_API_KEY:
+
+ingress:
+  enabled: true
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "30"
+    nginx.ingress.kubernetes.io/proxy-request-buffering: "off"
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      more_set_headers "X-Robots-Tag: noindex";
+  tls:
+    enabled: false
+    mode: replicate
+
+web:
+  replicaCount: 1
+  frankenphp:
+    resources:
+      requests:
+        cpu: "500m"
+        memory: "512M"
+      limits:
+        cpu: "1000m"
+        memory: "1024M"
+
+service:
+  annotations:
+    prometheus.io/scrape: "false"
+
+hooks:
+  environment:
+    APP_RUNNING_IN_CONSOLE: "true"
+  definitions:
+    migrate:
+      hook: pre-install,pre-upgrade
+      backoffLimit: 0
+      weight: -1
+      script: |
+        #!/bin/sh
+
+        php artisan migrate --force
+
+    pre-deployment:
+      hook: pre-install,pre-upgrade
+      backoffLimit: 0
+      weight: 0
+      script: |
+        #!/bin/sh
+
+        php artisan deployment:pre-hook || exit 0
+
+php:
+  configs: |
+    memory_limit = 256M
+    upload_max_filesize = 50M
+    post_max_size = 50M
+  opcache: extreme
+
+
+workers:
+  environment:
+      APP_RUNNING_IN_CONSOLE: "true"
+  definitions:
+    horizon:
+      replicaCount: 0
+      arguments: php artisan horizon
+    sms:
+      replicaCount: 0
+      arguments: php artisan queue:work --queue=critical-sms
+    monitoring:
+      replicaCount: 0
+      arguments: php artisan queue:work --queue=app-monitoring
+    http-logger:
+      replicaCount: 0
+      arguments: php artisan queue:work --queue=http-logs
+  defaults:
+      resources:
+        requests:
+          cpu: "500m"
+          memory: "1096M"
+        limits:
+          cpu: "500m"
+          memory: "1096M"
+      # affinity:
+      #   podAntiAffinity:
+      #     preferredDuringSchedulingIgnoredDuringExecution:
+      #       - weight: 100
+      #         podAffinityTerm:
+      #           labelSelector:
+      #             matchExpressions:
+      #               - key: app.kubernetes.io/instance
+      #                 operator: In
+      #                 values:
+      #                   - "{{ .Release.Name }}"
+      #           topologyKey: kubernetes.io/hostname
+  script: |
+      #!/bin/sh
+
+      command="$@"
+
+      while true ; do
+          echo "worker for queue $queue started at `date`";
+          $command
+          echo "worker exited at `date`";
+          sleep 1;
+      done;
+
+volumes:
+  definitions:
+    logs:
+      persist: false
+      mountPath: /var/www/storage/logs
+    cache:
+      persist: false
+      mountPath: /var/www/bootstrap/cache
+    views:
+      persist: false
+      mountPath: /var/www/storage/framework/views
+    tmp:
+      persist: false
+      mountPath: /tmp
+    caddy-data:
+      persist: false
+      mountPath: /data/caddy
+    caddy-config:
+      persist: false
+      mountPath: /config/caddy
+    psysh-config:
+      persist: false
+      mountPath: /config/psysh

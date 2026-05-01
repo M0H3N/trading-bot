@@ -1,0 +1,31 @@
+architecture: standalone
+
+master:
+  count: 1
+  persistence:
+    enabled: false
+  tolerations:
+    - key: "dedicated"
+      operator: "Equal"
+      value: "wallgold"
+      effect: "NoSchedule"
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: "dedicated"
+                operator: "In"
+                values:
+                  - "wallgold"
+
+replica:
+  replicaCount: 0
+  persistence:
+    enabled: false
+
+metrics:
+  enabled: false
+
+auth:
+  enabled: true

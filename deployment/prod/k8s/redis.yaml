@@ -1,0 +1,17 @@
+architecture: standalone
+
+master:
+  count: 1
+  persistence:
+    enabled: false
+
+replica:
+  replicaCount: 0
+  persistence:
+    enabled: false
+
+metrics:
+  enabled: true
+
+auth:
+  enabled: true

@@ -1,0 +1,11 @@
+environment:
+  SENTRY_ENVIRONMENT: staging-4
+  OTEL_RESOURCE_ATTRIBUTES: deployment.environment=staging-4
+  APP_NAME: wallgold-staging-4
+
+ingress:
+  hosts:
+    - host: wallgold-api-4.staging.k8s.wallex.dev
+      urlEnvironmentName: APP_URL
+      paths:
+        - /
