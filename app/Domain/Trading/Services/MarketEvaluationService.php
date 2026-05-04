@@ -53,7 +53,7 @@ class MarketEvaluationService
                 return null;
             }
 
-            $orderPrice = (float) $topAsk->price +  (float)$this->settings->int('tick_offset');
+            $orderPrice = (float) $topAsk->price *  (float)$this->settings->decimal('tick_offset');
             $balance = $client->getBalance($market->quote_asset);
 
 
