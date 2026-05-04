@@ -1,6 +1,6 @@
 services:
   php-fpm:
-    container_name: charity-php-fpm
+    container_name: wallbot-php-fpm
     build:
       context: .
       dockerfile: deployment/dev/php/Dockerfile
@@ -8,40 +8,40 @@ services:
     volumes:
       - .:/srv/app
     environment:
-      - PHP_IDE_CONFIG=serverName=charity
+      - PHP_IDE_CONFIG=serverName=wallbot
     depends_on:
       - mysql
       - redis
   nginx:
-    container_name: charity-nginx
+    container_name: wallbot-nginx
     build:
       context: .
       dockerfile: deployment/dev/nginx/Dockerfile
     ports:
-      - "8083:80"
+      - "8085:80"
     volumes:
       - .:/srv/app
     depends_on:
       - php-fpm
   mysql:
-    container_name: charity-db
+    container_name: wallbot-db
     image: mysql:8
     restart: unless-stopped
     environment:
-      MYSQL_DATABASE: ${DB_DATABASE:-charity}
-      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-charity}
-      MYSQL_USER: ${DB_USERNAME:-charity}
-      MYSQL_PASSWORD: ${DB_PASSWORD:-charity}
+      MYSQL_DATABASE: ${DB_DATABASE:-wallbot}
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-wallbot}
+      MYSQL_USER: ${DB_USERNAME:-wallbot}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-wallbot}
     volumes:
       - mysql_data:/var/lib/mysql
     ports:
-      - "4406:3306"
+      - "5506:3306"
   redis:
-    container_name: charity-redis
+    container_name: wallbot-redis
     image: redis:alpine
     restart: unless-stopped
     ports:
-      - "6390:6379"
+      - "6391:6379"
 
 volumes:
   mysql_data:

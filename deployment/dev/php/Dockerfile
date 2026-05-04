@@ -6,15 +6,15 @@ RUN apk add --no-cache \
     mpdecimal-dev \
     libzip-dev \
     zip \
+    icu-dev \
     libpng-dev \
     libjpeg-turbo-dev \
     freetype-dev \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install pdo_mysql bcmath zip gd sockets pcntl \
+    && docker-php-ext-install pdo_mysql bcmath zip gd sockets pcntl intl \
     && pecl install decimal \
     && pecl install redis \
-    && pecl install opentelemetry \
-    && docker-php-ext-enable decimal redis opentelemetry
+    && docker-php-ext-enable decimal redis
 
 
 FROM base as development

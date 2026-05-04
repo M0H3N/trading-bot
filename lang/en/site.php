@@ -1,9 +1,9 @@
 <?php
 
 return [
-    'brand' => 'Charity Crypto Fund',
+    'brand' => 'wallbot Crypto Fund',
     'badge' => 'Transparent Donations',
-    'title' => 'Support Our Charity with Crypto Donations',
+    'title' => 'Support Our wallbot with Crypto Donations',
     'hero_badge' => 'Crypto For Good',
     'hero_description' => 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer posuere erat a ante venenatis dapibus posuere velit aliquet. Curabitur blandit tempus porttitor, sed posuere consectetur est at lobortis. Morbi leo risus, porta ac consectetur ac, vestibulum at eros. Duis mollis, est non commodo luctus, nisi erat porttitor ligula, eget lacinia odio sem nec elit. We publish transparent updates and direct each contribution to urgent community programs, operational essentials, and measurable long-term support.',
     'projects_heading' => 'Support Active Projects',
