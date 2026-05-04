@@ -175,7 +175,7 @@ class TradingSettings extends Page
             'tick_offset' => TextInput::make($key)
                 ->label($label)
                 ->helperText($helper ?? 'Whole-number offset from the top-of-book price (ticks).')
-                ->integer()
+                ->numeric()
                 ->minValue(0)
                 ->required(),
             'blocker_threshold_tmn' => TextInput::make($key)
