@@ -47,6 +47,21 @@ class TradingOrder extends Model
         return $query->whereIn('status', ['pending', 'open', 'partially_filled']);
     }
 
+    /**
+     * Orders that still need status polling, or entry buys marked filled before a trade was recorded.
+     */
+    public function scopeMonitorable(Builder $query): Builder
+    {
+        return $query->where(function (Builder $query): void {
+            $query->active()
+                ->orWhere(function (Builder $query): void {
+                    $query->entry()
+                        ->where('status', 'filled')
+                        ->whereDoesntHave('trades', fn (Builder $trades): Builder => $trades->where('side', 'buy'));
+                });
+        });
+    }
+
     public function scopeEntry(Builder $query): Builder
     {
         return $query->where('side', 'buy');

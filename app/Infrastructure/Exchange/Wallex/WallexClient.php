@@ -12,6 +12,7 @@ use App\Domain\Exchange\DTO\PlacedOrderData;
 use App\Domain\Exchange\DTO\PlaceOrderData;
 use App\Domain\Http\Services\HttpLogService;
 use App\Domain\Trading\Services\CircuitBreakerService;
+use App\Domain\Trading\Services\EntryOrderPayload;
 use GuzzleHttp\Exception\RequestException as GuzzleRequestException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\RequestException as ClientRequestException;
@@ -103,8 +104,8 @@ class WallexClient implements ExchangeClient
             return new OrderStatusData(
                 clientId: $clientId,
                 status: $this->normalizeStatus((string) (Arr::get($result, 'status'))),
-                filledAmount: (string) (Arr::get($result, 'executedQty')),
-                averagePrice: Arr::get($result, 'averagePrice') ? (string) Arr::get($result, 'averagePrice') : null,
+                filledAmount: EntryOrderPayload::filledAmount($payload ?? []) ?? '0',
+                averagePrice: EntryOrderPayload::averagePrice($payload ?? []),
                 raw: $payload ?? [],
             );
         });

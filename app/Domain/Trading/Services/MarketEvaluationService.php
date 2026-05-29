@@ -18,6 +18,7 @@ class MarketEvaluationService
         private readonly TradingSettingsService $settings,
         private readonly OrderBookPricingService $pricing,
         private readonly ClientOrderIdFactory $clientIds,
+        private readonly TradeRecorder $tradeRecorder,
     ) {}
 
     public function evaluate(Market $market): ?TradingOrder
@@ -98,8 +99,25 @@ class MarketEvaluationService
                     'amount' => number_format($amount, $market->step_size, '.', ''),
                     'quote_amount' => number_format($orderPrice * $amount, 12, '.', ''),
                     'tick_offset' => $this->settings->int('tick_offset'),
+                    'filled_amount' => $placed->status === 'filled'
+                        ? (EntryOrderPayload::filledAmount($placed->raw) ?? '0')
+                        : '0',
                     'metadata' => $placed->raw,
                 ]);
+
+                if ($placed->status === 'filled' && ! $order->trades()->where('side', 'buy')->exists()) {
+                    $averagePrice = EntryOrderPayload::averagePrice($placed->raw);
+                    $filledAmount = EntryOrderPayload::filledAmount($placed->raw);
+
+                    if ($averagePrice !== null && $filledAmount !== null) {
+                        $this->tradeRecorder->recordFilledOrder($order, $averagePrice, $filledAmount);
+                    } else {
+                        Log::warning('Immediate fill could not be recorded: missing executedQty or average price in exchange payload.', [
+                            'order_id' => $order->id,
+                            'client_id' => $clientId,
+                        ]);
+                    }
+                }
 
                 Log::info('Trading entry order placed.', ['order_id' => $order->id, 'client_id' => $clientId]);
 

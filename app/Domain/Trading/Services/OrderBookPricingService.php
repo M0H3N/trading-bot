@@ -20,20 +20,21 @@ class OrderBookPricingService
         $totalQuote = 0.0;
 
         foreach ($book->$side as $level) {
-            if ($remainingTmn <= 0) {
-                break;
-            }
 
             $levelQuote = $level->notional();
             $takenQuote = min($remainingTmn, $levelQuote);
             $takenAmount = $takenQuote / (float) $level->price;
+            $remainingTmn -= $takenQuote;
+
+            if ($remainingTmn <= 0) {
+                break;
+            }
 
             $totalQuote += $takenQuote;
             $totalAmount += $takenAmount;
-            $remainingTmn -= $takenQuote;
         }
 
-        if ($totalAmount <= 0 || $totalQuote < $targetTmn) {
+        if ($totalAmount <= 0) {
             throw new RuntimeException('Order book depth is insufficient for configured USD depth.');
         }
 
@@ -46,7 +47,8 @@ class OrderBookPricingService
             return '0';
         }
 
-        return number_format(abs(((float) $price - (float) $reference) / (float) $reference) * 100, 8, '.', '');
+
+        return number_format(abs((((float) $price - (float) $reference)) / (float) $reference) * 100, 8, '.', '');
     }
 
     public function hasAnyOrderAbove(OrderBook $book, string $ourPrice, string $thresholdTmn): bool

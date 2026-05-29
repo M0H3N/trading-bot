@@ -1,0 +1,124 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Domain\Trading\Services\OrderMonitoringService;
+use App\Domain\Trading\Services\TradingSettingsService;
+use App\Models\Deal;
+use App\Models\Market;
+use App\Models\TradingOrder;
+use App\Models\TradingSetting;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
+use Tests\TestCase;
+
+class ImmediateEntryFillTest extends TestCase
+{
+    use RefreshDatabase;
+
+    public function test_monitor_records_deal_when_entry_order_is_already_filled(): void
+    {
+        config()->set('trading.enabled', true);
+        app(TradingSettingsService::class)->syncDefaults();
+        $this->setting('bot_enabled', '1');
+
+        $market = Market::query()->create([
+            'exchange' => 'wallex',
+            'symbol' => 'BTCTMN',
+            'base_asset' => 'BTC',
+            'quote_asset' => 'TMN',
+            'tick_size' => '1',
+            'step_size' => '1',
+            'is_active' => true,
+        ]);
+
+        $deal = Deal::query()->create([
+            'market_id' => $market->id,
+            'mode' => 'paper',
+            'status' => 'opening',
+            'opened_at' => now(),
+        ]);
+
+        $order = TradingOrder::query()->create([
+            'market_id' => $market->id,
+            'deal_id' => $deal->id,
+            'exchange' => 'wallex',
+            'symbol' => 'BTCTMN',
+            'client_id' => 'immediate-fill-test',
+            'mode' => 'paper',
+            'side' => 'buy',
+            'type' => 'limit',
+            'status' => 'filled',
+            'price' => '1000000000',
+            'amount' => '0.01',
+            'filled_amount' => '0.01',
+        ]);
+
+        Http::fake([
+            'api.wallex.ir/v1/account/orders/immediate-fill-test' => Http::response([
+                'result' => [
+                    'status' => 'FILLED',
+                    'executedQty' => '0.01',
+                    'averagePrice' => '1000000000',
+                ],
+            ]),
+        ]);
+
+        app(OrderMonitoringService::class)->monitor($order);
+
+        $deal->refresh();
+
+        $this->assertDatabaseHas('trades', [
+            'order_id' => $order->id,
+            'side' => 'buy',
+            'amount' => '0.010000000000',
+        ]);
+        $this->assertSame('entered', $deal->status);
+        $this->assertGreaterThan(0, (float) $deal->entry_amount);
+        $this->assertGreaterThan(0, (float) $deal->entry_average_price);
+    }
+
+    public function test_monitorable_scope_includes_filled_entries_without_trades(): void
+    {
+        $market = Market::query()->create([
+            'exchange' => 'wallex',
+            'symbol' => 'BTCTMN',
+            'base_asset' => 'BTC',
+            'quote_asset' => 'TMN',
+            'tick_size' => '1',
+            'step_size' => '1',
+            'is_active' => true,
+        ]);
+
+        $deal = Deal::query()->create([
+            'market_id' => $market->id,
+            'mode' => 'paper',
+            'status' => 'opening',
+            'opened_at' => now(),
+        ]);
+
+        $order = TradingOrder::query()->create([
+            'market_id' => $market->id,
+            'deal_id' => $deal->id,
+            'exchange' => 'wallex',
+            'symbol' => 'BTCTMN',
+            'client_id' => 'monitorable-scope-test',
+            'mode' => 'paper',
+            'side' => 'buy',
+            'type' => 'limit',
+            'status' => 'filled',
+            'price' => '1',
+            'amount' => '1',
+        ]);
+
+        $this->assertTrue(
+            TradingOrder::query()->monitorable()->whereKey($order->id)->exists(),
+            'Filled entry orders without a buy trade should still be monitorable.',
+        );
+    }
+
+    private function setting(string $key, string $value): void
+    {
+        TradingSetting::query()->where('key', $key)->update(['value' => $value]);
+    }
+}
