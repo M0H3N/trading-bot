@@ -104,7 +104,7 @@ class WallexClient implements ExchangeClient
             return new OrderStatusData(
                 clientId: $clientId,
                 status: $this->normalizeStatus((string) (Arr::get($result, 'status'))),
-                filledAmount: EntryOrderPayload::filledAmount($payload ?? []) ?? '0',
+                filledAmount: EntryOrderPayload::filledAmount($payload ?? []),
                 averagePrice: EntryOrderPayload::averagePrice($payload ?? []),
                 raw: $payload ?? [],
             );
