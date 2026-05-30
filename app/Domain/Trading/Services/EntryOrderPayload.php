@@ -12,9 +12,10 @@ final class EntryOrderPayload
     public static function filledAmount(array $raw): ?string
     {
         $result = Arr::get($raw, 'result', $raw);
+
         $qty = Arr::get($result, 'executedQty');
 
-        if (! is_numeric($qty) || (float) $qty <= 0) {
+        if (! is_numeric($qty) || (float) $qty < 0) {
             return null;
         }
 

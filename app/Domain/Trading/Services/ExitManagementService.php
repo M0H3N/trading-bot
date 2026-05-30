@@ -66,7 +66,8 @@ class ExitManagementService
             'last_checked_at' => now(),
         ])->save();
 
-        if ($order->updated_at && $order->updated_at->diffInSeconds(now()) < (int) config('trading.exit_interval', 30)) {
+
+        if ($order->created_at && $order->created_at->diffInSeconds(now()) < (int) config('trading.exit_interval', 30)) {
             return;
         }
 

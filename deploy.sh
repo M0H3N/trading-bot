@@ -43,6 +43,14 @@ for host in $hosts; do
     sudo chmod -R ug+rwx /var/www/wallbot/storage /var/www/wallbot/bootstrap/cache
   "
 
+  echo 'restart supervisor workers'
+  ssh -p 22 -i $HOME/.ssh/phnx-DB-production ubuntu@$host "
+    sudo supervisorctl stop all && \
+    sudo supervisorctl reread && \
+    sudo supervisorctl update && \
+    sudo supervisorctl reload
+  "
+
   echo "done for $host"
 done
 
