@@ -58,19 +58,23 @@ class TradeRecorder
             return;
         }
 
-        $entries = $deal->trades()->where('side', 'buy')->get();
-        $exits = $deal->trades()->where('side', 'sell')->get();
+        $deal->loadMissing('trades');
+
+        $entries = $deal->trades->where('side', 'buy');
+        $exits = $deal->trades->where('side', 'sell');
 
         $entryAmount = (float) $entries->sum(fn (Trade $trade): float => (float) $trade->amount);
         $entryQuote = (float) $entries->sum(fn (Trade $trade): float => (float) $trade->quote_amount);
+
         $exitAmount = (float) $exits->sum(fn (Trade $trade): float => (float) $trade->amount);
         $exitQuote = (float) $exits->sum(fn (Trade $trade): float => (float) $trade->quote_amount);
 
         $entryAverage = $entryAmount > 0 ? $entryQuote / $entryAmount : 0;
         $exitAverage = $exitAmount > 0 ? $exitQuote / $exitAmount : 0;
-        $realizedCost = $entryAverage * $exitAmount;
-        $pnl = $exitQuote - $realizedCost;
-        $pnlPercent = $realizedCost > 0 ? ($pnl / $realizedCost) * 100 : 0;
+
+        $feeInQuote = (float) $deal->trades->sum(fn (Trade $trade): float => $this->feeInQuote($trade));
+        $pnl = $exitQuote - $entryQuote - $feeInQuote;
+        $pnlPercent = $entryQuote > 0 ? ($pnl / $entryQuote) * 100 : 0;
 
         $status = $deal->status;
         if ($entryAmount > 0 && $exitAmount <= 0) {
@@ -93,5 +97,20 @@ class TradeRecorder
             'realized_pnl_percent' => number_format($pnlPercent, 8, '.', ''),
             'closed_at' => $status === 'closed' ? now() : $deal->closed_at,
         ])->save();
+    }
+
+    protected function feeInQuote(Trade $trade): float
+    {
+        $fee = (float) $trade->fee;
+
+        if ($fee <= 0) {
+            return 0.0;
+        }
+
+        if ($trade->side === 'buy') {
+            return $fee * (float) $trade->price;
+        }
+
+        return $fee;
     }
 }
