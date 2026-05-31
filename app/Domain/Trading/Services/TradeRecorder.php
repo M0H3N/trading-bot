@@ -9,8 +9,14 @@ use Illuminate\Support\Carbon;
 
 class TradeRecorder
 {
-    public function recordFilledOrder(TradingOrder $order, string $averagePrice, string $filledAmount): Trade
+    /**
+     * @param  array<string, mixed>  $exchangeRaw
+     */
+    public function recordFilledOrder(TradingOrder $order, string $averagePrice, string $filledAmount, array $exchangeRaw = []): Trade
     {
+        $fee = EntryOrderPayload::fee($exchangeRaw);
+        $feeAsset = EntryOrderPayload::feeAsset($exchangeRaw);
+
         $trade = Trade::query()->firstOrCreate(
             ['order_id' => $order->id, 'side' => $order->side],
             [
@@ -21,11 +27,19 @@ class TradeRecorder
                 'price' => $averagePrice,
                 'amount' => $filledAmount,
                 'quote_amount' => number_format((float) $averagePrice * (float) $filledAmount, 12, '.', ''),
-                'fee' => '0',
+                'fee' => $fee,
+                'fee_asset' => $feeAsset,
                 'filled_at' => Carbon::now(),
                 'metadata' => ['source' => 'order_status'],
             ],
         );
+
+        if (! $trade->wasRecentlyCreated) {
+            $trade->forceFill([
+                'fee' => $fee,
+                'fee_asset' => $feeAsset,
+            ])->save();
+        }
 
         $order->forceFill([
             'status' => 'filled',

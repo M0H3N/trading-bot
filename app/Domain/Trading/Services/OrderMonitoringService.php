@@ -43,7 +43,7 @@ class OrderMonitoringService
                 $filledAmount = EntryOrderPayload::filledAmount($status->raw);
 
                 if ($averagePrice !== null && $filledAmount !== null) {
-                    $this->tradeRecorder->recordFilledOrder($order, $averagePrice, $filledAmount);
+                    $this->tradeRecorder->recordFilledOrder($order, $averagePrice, $filledAmount, $status->raw);
                 } else {
                     Log::warning('Filled entry could not be recorded: missing executedQty or average price in exchange payload.', [
                         'order_id' => $order->id,
@@ -108,7 +108,7 @@ class OrderMonitoringService
             return;
         }
 
-        $this->tradeRecorder->recordFilledOrder($order, $averagePrice, $filledAmount);
+        $this->tradeRecorder->recordFilledOrder($order, $averagePrice, $filledAmount, $placed->raw);
     }
 
     protected function recordEntryFillIfUnrecorded(TradingOrder $order): bool
@@ -136,7 +136,7 @@ class OrderMonitoringService
             return false;
         }
 
-        $this->tradeRecorder->recordFilledOrder($order, $averagePrice, $filledAmount);
+        $this->tradeRecorder->recordFilledOrder($order, $averagePrice, $filledAmount, $status->raw);
 
         return true;
     }

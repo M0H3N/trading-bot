@@ -110,7 +110,7 @@ class MarketEvaluationService
                     $filledAmount = EntryOrderPayload::filledAmount($placed->raw);
 
                     if ($averagePrice !== null && $filledAmount !== null) {
-                        $this->tradeRecorder->recordFilledOrder($order, $averagePrice, $filledAmount);
+                        $this->tradeRecorder->recordFilledOrder($order, $averagePrice, $filledAmount, $placed->raw);
                     } else {
                         Log::warning('Immediate fill could not be recorded: missing executedQty or average price in exchange payload.', [
                             'order_id' => $order->id,

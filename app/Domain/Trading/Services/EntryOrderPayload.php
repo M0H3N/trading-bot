@@ -93,6 +93,44 @@ final class EntryOrderPayload
         return self::formatDecimal($sum / $qty);
     }
 
+    /**
+     * @param  array<string, mixed>  $raw
+     */
+    public static function fee(array $raw): string
+    {
+        $fee = Arr::get(Arr::get($raw, 'result', $raw), 'fee');
+
+        if (is_numeric($fee) && (float) $fee >= 0) {
+            return self::formatDecimal((float) $fee);
+        }
+
+        return '0';
+    }
+
+    /**
+     * @param  array<string, mixed>  $raw
+     */
+    public static function feeAsset(array $raw): ?string
+    {
+        $result = Arr::get($raw, 'result', $raw);
+
+        foreach (Arr::get($result, 'fills', []) as $fill) {
+            if (! is_array($fill)) {
+                continue;
+            }
+
+            $asset = Arr::get($fill, 'feeAsset') ?? Arr::get($fill, 'fee_asset');
+
+            if (is_string($asset) && $asset !== '') {
+                return strtoupper($asset);
+            }
+        }
+
+        $asset = Arr::get($result, 'feeAsset') ?? Arr::get($result, 'fee_asset');
+
+        return is_string($asset) && $asset !== '' ? strtoupper($asset) : null;
+    }
+
     protected static function formatDecimal(float $value): string
     {
         return rtrim(rtrim(number_format($value, 12, '.', ''), '0'), '.') ?: '0';

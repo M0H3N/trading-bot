@@ -55,6 +55,7 @@ class ExitManagementService
                 $order,
                 $status->averagePrice ?? (string) $order->price,
                 $status->filledAmount,
+                $status->raw,
             );
 
             return;
