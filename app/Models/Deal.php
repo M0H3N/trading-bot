@@ -41,6 +41,16 @@ class Deal extends Model
         return $query->whereIn('status', ['opening', 'entered', 'exiting', 'stop_loss']);
     }
 
+    public function scopeClose(Builder $query): Builder
+    {
+        return $query->where('status', 'closed');
+    }
+
+    public function isClosed(): bool
+    {
+        return $this->status === 'closed';
+    }
+
     public function market(): BelongsTo
     {
         return $this->belongsTo(Market::class);

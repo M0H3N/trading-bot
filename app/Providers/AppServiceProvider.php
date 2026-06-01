@@ -2,9 +2,12 @@
 
 namespace App\Providers;
 
+use App\Http\Middleware\LogViewerBasicAuth;
 use App\Support\HtmlSanitizer\LegacyDomHtmlParser;
 use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Http\Request;
 use Illuminate\Support\ServiceProvider;
+use Opcodes\LogViewer\Facades\LogViewer;
 use Symfony\Component\HtmlSanitizer\HtmlSanitizer;
 use Symfony\Component\HtmlSanitizer\HtmlSanitizerConfig;
 use Symfony\Component\HtmlSanitizer\HtmlSanitizerInterface;
@@ -24,8 +27,20 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        $this->registerLogViewerAuth();
         $this->registerHttpLogDatabaseConnection();
         $this->registerFilamentHtmlSanitizerFallback();
+    }
+
+    protected function registerLogViewerAuth(): void
+    {
+        LogViewer::auth(function (Request $request): bool {
+            if (! LogViewerBasicAuth::isEnabled()) {
+                return true;
+            }
+
+            return LogViewerBasicAuth::credentialsMatch($request);
+        });
     }
 
     /**

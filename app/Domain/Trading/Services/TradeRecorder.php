@@ -73,8 +73,15 @@ class TradeRecorder
         $exitAverage = $exitAmount > 0 ? $exitQuote / $exitAmount : 0;
 
         $feeInQuote = (float) $deal->trades->sum(fn (Trade $trade): float => $this->feeInQuote($trade));
-        $pnl = $exitQuote - $entryQuote - $feeInQuote;
-        $pnlPercent = $entryQuote > 0 ? ($pnl / $entryQuote) * 100 : 0;
+
+        if($deal->isClosed()){
+            $pnl = $exitQuote - $entryQuote - $feeInQuote;
+            $pnlPercent = $entryQuote > 0 ? ($pnl / $entryQuote) * 100 : 0;
+        }else{
+            $pnl = 0;
+            $pnlPercent = 0;
+        }
+
 
         $status = $deal->status;
         if ($entryAmount > 0 && $exitAmount <= 0) {
