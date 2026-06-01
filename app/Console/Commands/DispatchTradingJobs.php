@@ -21,11 +21,6 @@ class DispatchTradingJobs extends Command
 
     public function handle(TradingSettingsService $settings): int
     {
-        if (! $this->option('force') && ! $settings->botEnabled()) {
-            $this->components->info('Trading bot is disabled.');
-
-            return self::SUCCESS;
-        }
 
         $scope = (string) $this->option('scope');
 

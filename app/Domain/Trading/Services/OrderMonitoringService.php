@@ -20,9 +20,7 @@ class OrderMonitoringService
 
     public function monitor(TradingOrder $order): void
     {
-        if (! $this->settings->botEnabled()) {
-            return;
-        }
+
 
         Cache::lock("trading:order:{$order->id}", (int) config('trading.lock_ttl'))->block(5, function () use ($order): void {
             $order->refresh();
