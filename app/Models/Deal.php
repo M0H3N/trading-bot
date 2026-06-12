@@ -68,6 +68,10 @@ class Deal extends Model
 
     public function remainingAmount(): float
     {
-        return max(0.0, (float) $this->entry_amount - (float) $this->exit_amount);
+        $buyFees = (float) $this->trades()
+            ->where('side', 'buy')
+            ->sum('fee');
+
+        return max(0.0, (float) $this->entry_amount - $buyFees - (float) $this->exit_amount);
     }
 }

@@ -34,6 +34,10 @@ class AppServiceProvider extends ServiceProvider
 
     protected function registerLogViewerAuth(): void
     {
+        if (! interface_exists(\Opcodes\LogViewer\LogViewerService::class)) {
+            return;
+        }
+
         LogViewer::auth(function (Request $request): bool {
             if (! LogViewerBasicAuth::isEnabled()) {
                 return true;

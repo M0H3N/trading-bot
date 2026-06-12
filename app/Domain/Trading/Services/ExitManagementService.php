@@ -50,16 +50,11 @@ class ExitManagementService
         $client = $this->exchanges->client($order->exchange, $order->mode);
         $status = $client->getOrderStatus($order->client_id);
 
-        if ($status->isFilled()) {
-            $this->tradeRecorder->recordFilledOrder(
-                $order,
-                $status->averagePrice ?? (string) $order->price,
-                $status->filledAmount,
-                $status->raw,
-            );
+        $averagePrice = $status->averagePrice ?? EntryOrderPayload::averagePrice($status->raw);
+        $filledAmount = EntryOrderPayload::filledAmount($status->raw);
 
-            return;
-        }
+        if ($averagePrice !== null && $filledAmount !== null)
+            $this->tradeRecorder->recordFilledOrder($order, $averagePrice, $filledAmount, $status->raw);
 
         $order->forceFill([
             'status' => $status->status,
@@ -67,6 +62,9 @@ class ExitManagementService
             'last_checked_at' => now(),
         ])->save();
 
+        if ($status->isFilled()) {
+            return;
+        }
 
         if ($order->created_at && $order->created_at->diffInSeconds(now()) < (int) config('trading.exit_interval', 30)) {
             return;

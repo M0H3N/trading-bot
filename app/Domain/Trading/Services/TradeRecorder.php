@@ -18,14 +18,11 @@ class TradeRecorder
         $feeAsset = EntryOrderPayload::feeAsset($exchangeRaw);
 
         $trade = Trade::query()->firstOrCreate(
-            ['order_id' => $order->id, 'side' => $order->side],
+            [ 'deal_id' => $order->deal_id,'order_id' => $order->id, 'side' => $order->side,'price' => $averagePrice,'amount' => $filledAmount],
             [
                 'market_id' => $order->market_id,
-                'deal_id' => $order->deal_id,
                 'exchange_trade_id' => $order->external_id,
                 'mode' => $order->mode,
-                'price' => $averagePrice,
-                'amount' => $filledAmount,
                 'quote_amount' => number_format((float) $averagePrice * (float) $filledAmount, 12, '.', ''),
                 'fee' => $fee,
                 'fee_asset' => $feeAsset,
@@ -40,12 +37,6 @@ class TradeRecorder
                 'fee_asset' => $feeAsset,
             ])->save();
         }
-
-        $order->forceFill([
-            'status' => 'filled',
-            'filled_amount' => $filledAmount,
-            'last_checked_at' => Carbon::now(),
-        ])->save();
 
         $this->recalculateDeal($order->deal()->first());
 
