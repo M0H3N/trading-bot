@@ -15,7 +15,7 @@ final class EntryOrderPayload
 
         $qty = Arr::get($result, 'executedQty');
 
-        if (! is_numeric($qty) || (float) $qty < 0) {
+        if (! is_numeric($qty) || (float) $qty <= 0) {
             return null;
         }
 
