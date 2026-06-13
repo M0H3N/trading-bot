@@ -56,9 +56,10 @@ class ExitManagementService
         if ($averagePrice !== null && $filledAmount !== null)
             $this->tradeRecorder->recordFilledOrder($order, $averagePrice, $filledAmount, $status->raw);
 
+
         $order->forceFill([
             'status' => $status->status,
-            'filled_amount' => $status->filledAmount,
+            'filled_amount' => $status->filledAmount ?? 0,
             'last_checked_at' => now(),
         ])->save();
 
@@ -80,9 +81,10 @@ class ExitManagementService
         $desiredPrice = (float) $deal->entry_average_price * (1 + ($nextPercent / 100));
         $stopLoss = abs($desiredPrice - (float) $fair->price) / (float) $fair->price * 100 >= (float) $this->settings->decimal('stop_loss_percent');
 
+
         if ($stopLoss) {
             $deal->forceFill(['status' => 'stop_loss'])->save();
-            $desiredPrice = (float)$topAsk;
+            $desiredPrice = (float)$topAsk->price;
             $nextPercent = 0.0;
         } elseif ($nextPercent <= (float) $this->settings->decimal('exit_top_ask_from_percent') && $topAsk) {
             $desiredPrice = (float) $topAsk->price;
