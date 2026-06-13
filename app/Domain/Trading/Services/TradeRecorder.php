@@ -18,8 +18,11 @@ class TradeRecorder
         $feeAsset = EntryOrderPayload::feeAsset($exchangeRaw);
 
         $trade = Trade::query()->firstOrCreate(
-            [ 'deal_id' => $order->deal_id,'order_id' => $order->id, 'side' => $order->side,'price' => $averagePrice,'amount' => $filledAmount],
+            [ 'order_id' => $order->id, 'side' => $order->side],
             [
+                'deal_id' => $order->deal_id,
+                'amount' => $filledAmount,
+                'price' => $averagePrice,
                 'market_id' => $order->market_id,
                 'exchange_trade_id' => $order->external_id,
                 'mode' => $order->mode,
@@ -35,6 +38,9 @@ class TradeRecorder
             $trade->forceFill([
                 'fee' => $fee,
                 'fee_asset' => $feeAsset,
+                'amount' => $filledAmount,
+                'price' => $averagePrice,
+                'quote_amount' => number_format((float) $averagePrice * (float) $filledAmount, 12, '.', ''),
             ])->save();
         }
 
@@ -65,6 +71,7 @@ class TradeRecorder
 
         $feeInQuote = (float) $deal->trades->sum(fn (Trade $trade): float => $this->feeInQuote($trade));
 
+
         if($deal->isClosed()){
             $pnl = $exitQuote - $entryQuote - $feeInQuote;
             $pnlPercent = $entryQuote > 0 ? ($pnl / $entryQuote) * 100 : 0;
@@ -72,6 +79,9 @@ class TradeRecorder
             $pnl = 0;
             $pnlPercent = 0;
         }
+
+
+
 
 
         $status = $deal->status;
@@ -84,6 +94,7 @@ class TradeRecorder
         if ($entryAmount > 0 && $exitAmount >= $entryAmount) {
             $status = 'closed';
         }
+
 
         $deal->forceFill([
             'status' => $status,
