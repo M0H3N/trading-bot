@@ -137,7 +137,7 @@ class TradingSettings extends Page
             [
                 'title' => 'Entry & book',
                 'description' => 'How aggressively to enter and how much of the order book to consider for pricing.',
-                'keys' => ['entry_threshold_percent', 'trade_balance_percent', 'depth_usd', 'tick_offset'],
+                'keys' => ['entry_threshold_percent', 'trade_balance_percent', 'min_order_sum_tmn', 'depth_usd', 'tick_offset'],
             ],
             [
                 'title' => 'Exit ladder',
@@ -177,6 +177,13 @@ class TradingSettings extends Page
                 ->helperText($helper ?? 'Whole-number offset from the top-of-book price (ticks).')
                 ->numeric()
                 ->minValue(0)
+                ->required(),
+            'min_order_sum_tmn' => TextInput::make($key)
+                ->label($label)
+                ->helperText($helper ?? 'Minimum order notional (price × amount) required before placing an entry order.')
+                ->numeric()
+                ->minValue(0)
+                ->suffix('TMN')
                 ->required(),
             'blocker_threshold_tmn' => TextInput::make($key)
                 ->label($label)

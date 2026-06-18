@@ -64,6 +64,11 @@ class MarketEvaluationService
                 return null;
             }
 
+            $orderSum = $orderPrice * $amount;
+            if ($orderSum < (float) $this->settings->decimal('min_order_sum_tmn')) {
+                return null;
+            }
+
             $clientId = $this->clientIds->make($market, 'buy');
             $placed = $client->placeOrder(new PlaceOrderData(
                 symbol: $market->symbol,

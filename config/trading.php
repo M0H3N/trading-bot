@@ -19,6 +19,7 @@ return [
         'minimum_exit_percent' => '0.02',
         'stop_loss_percent' => '1.00',
         'trade_balance_percent' => '25.00',
+        'min_order_sum_tmn' => '100000',
         'blocker_threshold_tmn' => '15000000',
         'tick_offset' => '4',
         'depth_usd' => '2000',

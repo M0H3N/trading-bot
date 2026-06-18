@@ -47,6 +47,37 @@ class PaperTradingFlowTest extends TestCase
         $this->assertDatabaseHas('orders', ['symbol' => 'BTCTMN', 'mode' => 'paper', 'side' => 'buy', 'status' => 'open']);
     }
 
+    public function test_market_evaluation_skips_order_when_notional_is_below_min_order_sum(): void
+    {
+        config()->set('trading.enabled', true);
+        config()->set('trading.mode', 'paper');
+        app(TradingSettingsService::class)->syncDefaults();
+        $this->setting('bot_enabled', '1');
+        $this->setting('trading_mode', 'paper');
+        $this->setting('trade_balance_percent', '0.000001');
+        $this->setting('min_order_sum_tmn', '100000');
+
+        $market = Market::query()->create([
+            'exchange' => 'wallex',
+            'symbol' => 'BTCTMN',
+            'base_asset' => 'BTC',
+            'quote_asset' => 'TMN',
+            'tick_size' => '1',
+            'step_size' => '1',
+            'is_active' => true,
+        ]);
+
+        Http::fake([
+            'api.wallex.ir/v1/all-fairPrice' => Http::response(['result' => ['BTCTMN' => '1000000000', 'USDTTMN' => '70000']]),
+            'api.wallex.ir/v1/depth*' => Http::response(['result' => ['bid' => [['price' => '1002000000', 'quantity' => '1']], 'ask' => [['price' => '1003000000', 'quantity' => '1']]]]),
+        ]);
+
+        $order = app(MarketEvaluationService::class)->evaluate($market);
+
+        $this->assertNull($order);
+        $this->assertDatabaseCount('orders', 0);
+    }
+
     public function test_paper_order_status_fills_against_top_of_book(): void
     {
         $market = Market::query()->create([
