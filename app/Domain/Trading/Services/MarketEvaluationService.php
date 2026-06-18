@@ -45,7 +45,6 @@ class MarketEvaluationService
 
 
             if ((float) $diff < (float) $this->settings->decimal('entry_threshold_percent')) {
-                Log::info('Trading opportunity skipped.', compact('diff') + ['symbol' => $market->symbol]);
                 return null;
             }
 
@@ -119,7 +118,6 @@ class MarketEvaluationService
                     }
                 }
 
-                Log::info('Trading entry order placed.', ['order_id' => $order->id, 'client_id' => $clientId]);
 
                 return $order;
             });

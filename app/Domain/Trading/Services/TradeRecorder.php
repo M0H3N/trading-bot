@@ -81,7 +81,8 @@ class TradeRecorder
         }
 
 
-
+        $entryAmount = number_format($entryAmount, 12, '.', '');
+        $exitAmount = number_format($exitAmount, 12, '.', '');
 
 
         $status = $deal->status;

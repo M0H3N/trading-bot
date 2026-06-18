@@ -34,7 +34,7 @@ class ExitManagementService
                 return;
             }
 
-            $activeExit = $deal->orders()->active()->exit()->latest()->first();
+            $activeExit = $deal->orders()->exit()->latest()->first();
             if ($activeExit) {
                 $this->monitorExitOrder($activeExit);
 
@@ -94,7 +94,6 @@ class ExitManagementService
         $order->forceFill(['status' => 'cancelled'])->save();
 
         $this->placeExitOrder($deal, $deal->remainingAmount(), $nextPercent, number_format($desiredPrice, $market->tick_size, '.', ''));
-        Log::info('Trading exit order repriced.', ['deal_id' => $deal->id, 'stop_loss' => $stopLoss, 'market' => $market->symbol]);
     }
 
     protected function placeExitOrder(Deal $deal, float $amount, float $exitPercent, ?string $forcedPrice = null): TradingOrder
@@ -103,6 +102,9 @@ class ExitManagementService
         $client = $this->exchanges->client($market->exchange, $deal->mode);
         $price = $forcedPrice ?? number_format((float) $deal->entry_average_price * (1 + ($exitPercent / 100)), $market->tick_size, '.', '');
         $clientId = $this->clientIds->make($market, 'sell');
+
+        $clientId = 'Deal-'.$deal->id."-".$clientId;
+
         $placed = $client->placeOrder(new PlaceOrderData(
             symbol: $market->symbol,
             side: 'sell',

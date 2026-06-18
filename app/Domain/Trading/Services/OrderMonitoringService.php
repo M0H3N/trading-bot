@@ -43,7 +43,7 @@ class OrderMonitoringService
 
             $order->forceFill([
                 'status' => $status->status,
-                'filled_amount' => $status->filledAmount,
+                'filled_amount' => $status->filledAmount ?? 0,
                 'last_checked_at' => now(),
                 'metadata' => array_merge($order->metadata ?? [], ['last_status' => $status->raw]),
             ])->save();
@@ -65,7 +65,6 @@ class OrderMonitoringService
 
             $client->cancelOrder($order->client_id);
             $order->forceFill(['status' => 'cancelled'])->save();
-            Log::info('Trading entry order cancelled for reprice.', ['order_id' => $order->id, 'blocked' => $blocked, 'opportunity_gone' => $opportunityGone]);
 
             if (! $opportunityGone) {
                 $this->marketEvaluation->evaluate($order->market()->firstOrFail());
