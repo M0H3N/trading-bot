@@ -31,6 +31,14 @@ class TradingSettingsService
         return (string) $this->get('trading_mode', config('trading.mode', 'paper'));
     }
 
+    public function minOrderSum(string $quoteAsset): float
+    {
+        return match (strtoupper($quoteAsset)) {
+            'USDT' => (float) $this->decimal('min_order_sum_usdt'),
+            default => (float) $this->decimal('min_order_sum_tmn'),
+        };
+    }
+
     public function botEnabled(): bool
     {
         return (bool) config('trading.enabled', false) && $this->bool('bot_enabled');

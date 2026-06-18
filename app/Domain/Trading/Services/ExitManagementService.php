@@ -28,9 +28,8 @@ class ExitManagementService
             $deal->refresh();
             $remaining = $deal->remainingAmount();
 
-            if ($remaining <= 0) {
-                $this->tradeRecorder->recalculateDeal($deal);
-
+            if ($this->closeDealIfRemainderTooSmall($deal)) {
+                $this->closeDeal($deal);
                 return;
             }
 
@@ -96,11 +95,12 @@ class ExitManagementService
         $this->placeExitOrder($deal, $deal->remainingAmount(), $nextPercent, number_format($desiredPrice, $market->tick_size, '.', ''));
     }
 
-    protected function placeExitOrder(Deal $deal, float $amount, float $exitPercent, ?string $forcedPrice = null): TradingOrder
+    protected function placeExitOrder(Deal $deal, float $amount, float $exitPercent, ?string $forcedPrice = null): ?TradingOrder
     {
         $market = $deal->market()->firstOrFail();
-        $client = $this->exchanges->client($market->exchange, $deal->mode);
         $price = $forcedPrice ?? number_format((float) $deal->entry_average_price * (1 + ($exitPercent / 100)), $market->tick_size, '.', '');
+
+        $client = $this->exchanges->client($market->exchange, $deal->mode);
         $clientId = $this->clientIds->make($market, 'sell');
 
         $clientId = 'Deal-'.$deal->id."-".$clientId;
@@ -133,5 +133,37 @@ class ExitManagementService
             'quote_amount' => number_format((float) $price * $amount, 12, '.', ''),
             'metadata' => array_merge($placed->raw, ['exit_percent' => $exitPercent]),
         ]);
+    }
+
+    protected function closeDealIfRemainderTooSmall(Deal $deal): bool
+    {
+        if($deal->exit_average_price == 0)
+            return false;
+
+        $remaining = $deal->remainingAmount();
+
+        if ($remaining <= 0) {
+            return true;
+        }
+
+        $market = $deal->market()->firstOrFail();
+        $notional = $remaining * $deal->exit_average_price;
+
+        if ($notional >= $this->settings->minOrderSum($market->quote_asset)) {
+            return false;
+        }
+
+
+        return true;
+    }
+
+    protected function closeDeal(Deal $deal):void
+    {
+        $deal->forceFill([
+            'status' => 'closed',
+            'closed_at' => now(),
+        ])->save();
+
+        $this->tradeRecorder->recalculateDeal($deal->refresh());
     }
 }

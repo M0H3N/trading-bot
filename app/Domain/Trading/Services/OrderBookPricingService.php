@@ -35,7 +35,7 @@ class OrderBookPricingService
         }
 
         if ($totalAmount <= 0) {
-            throw new RuntimeException('Order book depth is insufficient for configured USD depth.');
+            throw new RuntimeException("Order book depth is insufficient for configured USD depth. total amount is : {$totalAmount}");
         }
 
         return number_format($totalQuote / $totalAmount, 12, '.', '');

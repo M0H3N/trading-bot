@@ -137,7 +137,7 @@ class TradingSettings extends Page
             [
                 'title' => 'Entry & book',
                 'description' => 'How aggressively to enter and how much of the order book to consider for pricing.',
-                'keys' => ['entry_threshold_percent', 'trade_balance_percent', 'min_order_sum_tmn', 'depth_usd', 'tick_offset'],
+                'keys' => ['entry_threshold_percent', 'trade_balance_percent', 'min_order_sum_tmn', 'min_order_sum_usdt', 'depth_usd', 'tick_offset'],
             ],
             [
                 'title' => 'Exit ladder',
@@ -184,6 +184,13 @@ class TradingSettings extends Page
                 ->numeric()
                 ->minValue(0)
                 ->suffix('TMN')
+                ->required(),
+            'min_order_sum_usdt' => TextInput::make($key)
+                ->label($label)
+                ->helperText($helper ?? 'Minimum order notional for markets quoted in USDT.')
+                ->numeric()
+                ->minValue(0)
+                ->suffix('USDT')
                 ->required(),
             'blocker_threshold_tmn' => TextInput::make($key)
                 ->label($label)

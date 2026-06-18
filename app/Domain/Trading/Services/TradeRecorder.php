@@ -86,14 +86,13 @@ class TradeRecorder
 
 
         $status = $deal->status;
-        if ($entryAmount > 0 && $exitAmount <= 0) {
-            $status = 'entered';
-        }
-        if ($exitAmount > 0 && $exitAmount < $entryAmount) {
-            $status = 'exiting';
-        }
-        if ($entryAmount > 0 && $exitAmount >= $entryAmount) {
+
+        if ($deal->isClosed()) {
             $status = 'closed';
+        } elseif ($entryAmount > 0 && $exitAmount <= 0) {
+            $status = 'entered';
+        } elseif ($exitAmount > 0 && $exitAmount < $entryAmount) {
+            $status = 'exiting';
         }
 
 

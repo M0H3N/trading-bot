@@ -65,7 +65,7 @@ class MarketEvaluationService
             }
 
             $orderSum = $orderPrice * $amount;
-            if ($orderSum < (float) $this->settings->decimal('min_order_sum_tmn')) {
+            if ($orderSum < $this->settings->minOrderSum($market->quote_asset)) {
                 return null;
             }
 
