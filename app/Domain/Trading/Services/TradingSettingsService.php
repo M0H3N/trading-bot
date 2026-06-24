@@ -47,22 +47,13 @@ class TradingSettingsService
         };
     }
 
-    public function tradingEnabled(): bool
-    {
-        return (bool) config('trading.enabled', false);
-    }
-
     public function marketEvaluationEnabled(): bool
     {
-        return $this->tradingEnabled() && $this->bool('market_evaluation_enabled');
+        return $this->bool('market_evaluation_enabled');
     }
 
     public function exitManagementEnabled(): bool
     {
-        if (! $this->tradingEnabled()) {
-            return false;
-        }
-
         return $this->bool('exit_management_enabled') || $this->bool('market_evaluation_enabled');
     }
 

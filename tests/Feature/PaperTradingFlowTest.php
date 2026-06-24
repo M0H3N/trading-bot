@@ -19,7 +19,6 @@ class PaperTradingFlowTest extends TestCase
 
     public function test_market_evaluation_places_only_one_active_paper_entry_order(): void
     {
-        config()->set('trading.enabled', true);
         config()->set('trading.mode', 'paper');
         app(TradingSettingsService::class)->syncDefaults();
         $this->setting('market_evaluation_enabled', '1');
@@ -50,7 +49,6 @@ class PaperTradingFlowTest extends TestCase
 
     public function test_market_evaluation_skips_order_when_notional_is_below_min_order_sum(): void
     {
-        config()->set('trading.enabled', true);
         config()->set('trading.mode', 'paper');
         app(TradingSettingsService::class)->syncDefaults();
         $this->setting('market_evaluation_enabled', '1');

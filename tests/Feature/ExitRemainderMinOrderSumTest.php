@@ -16,7 +16,6 @@ class ExitRemainderMinOrderSumTest extends TestCase
 
     public function test_exit_closes_tmn_deal_when_remainder_notional_is_below_min_order_sum(): void
     {
-        config()->set('trading.enabled', true);
         app(TradingSettingsService::class)->syncDefaults();
         $this->setting('exit_management_enabled', '1');
         $this->setting('min_order_sum_tmn', '100000');
@@ -53,7 +52,6 @@ class ExitRemainderMinOrderSumTest extends TestCase
 
     public function test_exit_closes_usdt_deal_when_remainder_notional_is_below_min_order_sum(): void
     {
-        config()->set('trading.enabled', true);
         app(TradingSettingsService::class)->syncDefaults();
         $this->setting('exit_management_enabled', '1');
         $this->setting('min_order_sum_usdt', '10');

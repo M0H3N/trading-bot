@@ -14,8 +14,7 @@ use Illuminate\Console\Command;
 class DispatchTradingJobs extends Command
 {
     protected $signature = 'trading:dispatch
-        {--scope=all : Scope to dispatch: all, evaluate, monitor, or exit}
-        {--force : Dispatch even when the bot is disabled}';
+        {--scope=all : Scope to dispatch: all, evaluate, monitor, or exit}';
 
     protected $description = 'Dispatch trading evaluation, order monitoring, and exit management jobs.';
 
@@ -23,9 +22,8 @@ class DispatchTradingJobs extends Command
     {
 
         $scope = (string) $this->option('scope');
-        $force = (bool) $this->option('force');
 
-        if (in_array($scope, ['all', 'evaluate'], true) && ($force || $settings->marketEvaluationEnabled())) {
+        if (in_array($scope, ['all', 'evaluate'], true) && $settings->marketEvaluationEnabled()) {
             Market::query()->active()->pluck('id')->each(fn (int $id) => EvaluateMarketJob::dispatch($id));
         }
 
@@ -33,7 +31,7 @@ class DispatchTradingJobs extends Command
             TradingOrder::query()->monitorable()->pluck('id')->each(fn (int $id) => MonitorOrderJob::dispatch($id));
         }
 
-        if (in_array($scope, ['all', 'exit'], true) && ($force || $settings->exitManagementEnabled())) {
+        if (in_array($scope, ['all', 'exit'], true) && $settings->exitManagementEnabled()) {
             Deal::query()->open()->pluck('id')->each(fn (int $id) => ManageExitJob::dispatch($id));
         }
 

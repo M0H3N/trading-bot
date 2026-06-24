@@ -18,7 +18,6 @@ class ImmediateEntryFillTest extends TestCase
 
     public function test_monitor_records_deal_when_entry_order_is_already_filled(): void
     {
-        config()->set('trading.enabled', true);
         app(TradingSettingsService::class)->syncDefaults();
         $this->setting('market_evaluation_enabled', '1');
 

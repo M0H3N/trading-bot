@@ -1,7 +1,6 @@
 <?php
 
 return [
-    'enabled' => env('TRADING_ENABLED', true),
     'mode' => env('TRADING_MODE', 'paper'),
     'default_exchange' => env('TRADING_DEFAULT_EXCHANGE', 'wallex'),
     'queue' => env('TRADING_QUEUE', 'default'),

@@ -18,7 +18,6 @@ class TradingServiceTogglesTest extends TestCase
 
     public function test_market_evaluation_can_be_disabled_while_exit_management_runs(): void
     {
-        config()->set('trading.enabled', true);
         app(TradingSettingsService::class)->syncDefaults();
         $this->setting('market_evaluation_enabled', '0');
         $this->setting('exit_management_enabled', '1');
@@ -58,7 +57,6 @@ class TradingServiceTogglesTest extends TestCase
 
     public function test_market_evaluation_enabled_implies_exit_management_enabled(): void
     {
-        config()->set('trading.enabled', true);
         app(TradingSettingsService::class)->syncDefaults();
         $this->setting('market_evaluation_enabled', '1');
         $this->setting('exit_management_enabled', '0');
