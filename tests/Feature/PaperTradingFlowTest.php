@@ -22,7 +22,8 @@ class PaperTradingFlowTest extends TestCase
         config()->set('trading.enabled', true);
         config()->set('trading.mode', 'paper');
         app(TradingSettingsService::class)->syncDefaults();
-        $this->setting('bot_enabled', '1');
+        $this->setting('market_evaluation_enabled', '1');
+        $this->setting('exit_management_enabled', '1');
         $this->setting('trading_mode', 'paper');
 
         $market = Market::query()->create([
@@ -52,7 +53,8 @@ class PaperTradingFlowTest extends TestCase
         config()->set('trading.enabled', true);
         config()->set('trading.mode', 'paper');
         app(TradingSettingsService::class)->syncDefaults();
-        $this->setting('bot_enabled', '1');
+        $this->setting('market_evaluation_enabled', '1');
+        $this->setting('exit_management_enabled', '1');
         $this->setting('trading_mode', 'paper');
         $this->setting('trade_balance_percent', '0.000001');
         $this->setting('min_order_sum_tmn', '100000');

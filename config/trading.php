@@ -10,7 +10,8 @@ return [
     'exit_interval' => (int) env('TRADING_EXIT_INTERVAL', 30),
 
     'settings' => [
-        'bot_enabled' => false,
+        'market_evaluation_enabled' => false,
+        'exit_management_enabled' => false,
         'trading_mode' => 'paper',
         'entry_threshold_percent' => '0.10',
         'initial_exit_percent' => '0.10',

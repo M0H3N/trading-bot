@@ -23,8 +23,9 @@ class DispatchTradingJobs extends Command
     {
 
         $scope = (string) $this->option('scope');
+        $force = (bool) $this->option('force');
 
-        if (in_array($scope, ['all', 'evaluate'], true)) {
+        if (in_array($scope, ['all', 'evaluate'], true) && ($force || $settings->marketEvaluationEnabled())) {
             Market::query()->active()->pluck('id')->each(fn (int $id) => EvaluateMarketJob::dispatch($id));
         }
 
@@ -32,7 +33,7 @@ class DispatchTradingJobs extends Command
             TradingOrder::query()->monitorable()->pluck('id')->each(fn (int $id) => MonitorOrderJob::dispatch($id));
         }
 
-        if (in_array($scope, ['all', 'exit'], true)) {
+        if (in_array($scope, ['all', 'exit'], true) && ($force || $settings->exitManagementEnabled())) {
             Deal::query()->open()->pluck('id')->each(fn (int $id) => ManageExitJob::dispatch($id));
         }
 

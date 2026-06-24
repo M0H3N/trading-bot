@@ -15,6 +15,8 @@ use Filament\Schemas\Components\Actions;
 use Filament\Schemas\Components\EmbeddedSchema;
 use Filament\Schemas\Components\Form;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\Alignment;
 use Filament\Support\Enums\Width;
@@ -130,9 +132,9 @@ class TradingSettings extends Page
     {
         return [
             [
-                'title' => 'Bot & execution mode',
-                'description' => 'Control whether the bot runs and whether orders are simulated (paper) or sent to the exchange (live).',
-                'keys' => ['bot_enabled', 'trading_mode'],
+                'title' => 'Services & execution mode',
+                'description' => 'Control market evaluation (new entries), exit management (open deals), and whether orders are simulated or live.',
+                'keys' => ['market_evaluation_enabled', 'exit_management_enabled', 'trading_mode'],
             ],
             [
                 'title' => 'Entry & book',
@@ -159,9 +161,20 @@ class TradingSettings extends Page
         $helper = $record->description;
 
         return match ($key) {
-            'bot_enabled' => Toggle::make($key)
-                ->label($label)
-                ->helperText($helper ?? 'When off, evaluation jobs will not open new deals.')
+            'market_evaluation_enabled' => Toggle::make($key)
+                ->label('Market evaluation')
+                ->helperText($helper ?? 'Scans markets and opens new entry deals. Turning this on also enables exit management.')
+                ->live()
+                ->afterStateUpdated(function (bool $state, Set $set): void {
+                    if ($state) {
+                        $set('exit_management_enabled', true);
+                    }
+                })
+                ->inline(false),
+            'exit_management_enabled' => Toggle::make($key)
+                ->label('Exit management')
+                ->helperText($helper ?? 'Manages exits for open deals. Can run on its own or together with market evaluation.')
+                ->disabled(fn (Get $get): bool => (bool) $get('market_evaluation_enabled'))
                 ->inline(false),
             'trading_mode' => Select::make($key)
                 ->label($label)
@@ -241,6 +254,10 @@ class TradingSettings extends Page
     public function save(): void
     {
         $data = $this->form->getState();
+
+        if (! empty($data['market_evaluation_enabled'])) {
+            $data['exit_management_enabled'] = true;
+        }
 
         foreach ($data as $key => $value) {
             TradingSetting::query()->where('key', $key)->update([

@@ -47,13 +47,48 @@ class TradingSettingsService
         };
     }
 
-    public function botEnabled(): bool
+    public function tradingEnabled(): bool
     {
-        return (bool) config('trading.enabled', false) && $this->bool('bot_enabled');
+        return (bool) config('trading.enabled', false);
+    }
+
+    public function marketEvaluationEnabled(): bool
+    {
+        return $this->tradingEnabled() && $this->bool('market_evaluation_enabled');
+    }
+
+    public function exitManagementEnabled(): bool
+    {
+        if (! $this->tradingEnabled()) {
+            return false;
+        }
+
+        return $this->bool('exit_management_enabled') || $this->bool('market_evaluation_enabled');
     }
 
     public function syncDefaults(): void
     {
+        $legacy = TradingSetting::query()->where('key', 'bot_enabled')->first();
+
+        if ($legacy) {
+            $enabled = filter_var($legacy->value, FILTER_VALIDATE_BOOLEAN);
+            $legacyValue = $enabled ? '1' : '0';
+
+            foreach (['market_evaluation_enabled', 'exit_management_enabled'] as $key) {
+                TradingSetting::query()->updateOrCreate(
+                    ['key' => $key],
+                    [
+                        'value' => $legacyValue,
+                        'type' => 'bool',
+                        'label' => str($key)->headline()->toString(),
+                        'is_public' => true,
+                    ],
+                );
+            }
+
+            $legacy->delete();
+        }
+
         foreach ((array) config('trading.settings', []) as $key => $value) {
             TradingSetting::query()->firstOrCreate(
                 ['key' => $key],

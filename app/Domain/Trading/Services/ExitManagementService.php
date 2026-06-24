@@ -20,7 +20,7 @@ class ExitManagementService
 
     public function manage(Deal $deal): void
     {
-        if (! $this->settings->botEnabled() || ! in_array($deal->status, ['entered', 'exiting', 'stop_loss'], true)) {
+        if (! $this->settings->exitManagementEnabled() || ! in_array($deal->status, ['entered', 'exiting', 'stop_loss'], true)) {
             return;
         }
 

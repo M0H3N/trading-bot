@@ -20,7 +20,7 @@ class ImmediateEntryFillTest extends TestCase
     {
         config()->set('trading.enabled', true);
         app(TradingSettingsService::class)->syncDefaults();
-        $this->setting('bot_enabled', '1');
+        $this->setting('market_evaluation_enabled', '1');
 
         $market = Market::query()->create([
             'exchange' => 'wallex',

@@ -24,7 +24,7 @@ class MarketEvaluationService
     public function evaluate(Market $market): ?TradingOrder
     {
 
-        if (! $market->is_active || ! $this->settings->botEnabled()) {
+        if (! $market->is_active || ! $this->settings->marketEvaluationEnabled()) {
             return null;
         }
 
