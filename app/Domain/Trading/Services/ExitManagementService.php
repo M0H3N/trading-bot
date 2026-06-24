@@ -42,6 +42,12 @@ class ExitManagementService
             }
 
             $this->placeExitOrder($deal, $remaining, (float) $this->settings->decimal('initial_exit_percent'));
+
+            $deal->refresh();
+
+            if ($this->closeDealIfRemainderTooSmall($deal)) {
+                $this->closeDeal($deal);
+            }
         });
     }
 
@@ -118,7 +124,7 @@ class ExitManagementService
 
         $deal->forceFill(['status' => $deal->status === 'stop_loss' ? 'stop_loss' : 'exiting'])->save();
 
-        return TradingOrder::query()->create([
+        $order = TradingOrder::query()->create([
             'market_id' => $market->id,
             'deal_id' => $deal->id,
             'exchange' => $market->exchange,
@@ -132,8 +138,27 @@ class ExitManagementService
             'price' => $price,
             'amount' => number_format($amount, $market->step_size, '.', ''),
             'quote_amount' => number_format((float) $price * $amount, 12, '.', ''),
+            'filled_amount' => $placed->status === 'filled'
+                ? (EntryOrderPayload::filledAmount($placed->raw) ?? '0')
+                : '0',
             'metadata' => array_merge($placed->raw, ['exit_percent' => $exitPercent]),
         ]);
+
+        if ($placed->status === 'filled' && ! $order->trades()->where('side', 'sell')->exists()) {
+            $averagePrice = EntryOrderPayload::averagePrice($placed->raw);
+            $filledAmount = EntryOrderPayload::filledAmount($placed->raw);
+
+            if ($averagePrice !== null && $filledAmount !== null) {
+                $this->tradeRecorder->recordFilledOrder($order, $averagePrice, $filledAmount, $placed->raw);
+            } else {
+                Log::warning('Immediate exit fill could not be recorded: missing executedQty or average price in exchange payload.', [
+                    'order_id' => $order->id,
+                    'client_id' => $clientId,
+                ]);
+            }
+        }
+
+        return $order;
     }
 
     protected function closeDealIfRemainderTooSmall(Deal $deal): bool
