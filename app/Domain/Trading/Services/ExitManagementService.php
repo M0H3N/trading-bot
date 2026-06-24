@@ -28,12 +28,13 @@ class ExitManagementService
             $deal->refresh();
             $remaining = $deal->remainingAmount();
 
+
             if ($this->closeDealIfRemainderTooSmall($deal)) {
                 $this->closeDeal($deal);
                 return;
             }
 
-            $activeExit = $deal->orders()->exit()->latest()->first();
+            $activeExit = $deal->orders()->exit()->active()->latest()->first();
             if ($activeExit) {
                 $this->monitorExitOrder($activeExit);
 
