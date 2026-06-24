@@ -24,18 +24,27 @@ class OrderBookPricingService
             $levelQuote = $level->notional();
             $takenQuote = min($remainingTmn, $levelQuote);
             $takenAmount = $takenQuote / (float) $level->price;
+
+            $totalQuote += $takenQuote;
+            $totalAmount += $takenAmount;
             $remainingTmn -= $takenQuote;
 
             if ($remainingTmn <= 0) {
                 break;
             }
-
-            $totalQuote += $takenQuote;
-            $totalAmount += $takenAmount;
         }
 
         if ($totalAmount <= 0) {
-            throw new RuntimeException("Order book depth is insufficient for configured USD depth. total amount is : {$totalAmount}");
+            \Log::info('depth_info',[
+                'depth' => $depthUsd,
+                'usdtTmnPrice' => $usdtTmnPrice,
+                'side' => $side,
+                'targetTmn' => $targetTmn,
+                'totalAmount' => $totalAmount,
+                'remainingAmount' => $remainingTmn,
+                'orderBook' => (array)$book,
+            ]);
+            throw new RuntimeException("Order book depth is insufficient for configured USD depth. total amount is : {$totalAmount}}");
         }
 
         return number_format($totalQuote / $totalAmount, 12, '.', '');

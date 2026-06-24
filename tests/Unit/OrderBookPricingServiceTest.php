@@ -16,9 +16,20 @@ class OrderBookPricingServiceTest extends TestCase
             new OrderBookLevel('90', '20'),
         ], []);
 
-        $average = (new OrderBookPricingService)->averagePriceOfDepth($book, '10', '200');
+        $average = (new OrderBookPricingService)->averagePriceOfDepth($book, 'bids', '10', '200');
 
         $this->assertSame('94.736842105263', $average);
+    }
+
+    public function test_it_calculates_average_when_first_level_covers_depth(): void
+    {
+        $book = new OrderBook('BTCTMN', [], [
+            new OrderBookLevel('1000000', '100'),
+        ]);
+
+        $average = (new OrderBookPricingService)->averagePriceOfDepth($book, 'asks', '10', '200');
+
+        $this->assertSame('1000000.000000000000', $average);
     }
 
     public function test_it_detects_large_blocking_bid_above_our_order(): void
