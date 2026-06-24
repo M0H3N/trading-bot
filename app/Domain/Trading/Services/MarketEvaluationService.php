@@ -43,9 +43,6 @@ class MarketEvaluationService
 
             $diff = $this->pricing->percentDifference($averageWallex, $fair->price);
 
-            dd($diff ,(float) $this->settings->decimal('entry_threshold_percent') );
-
-
             if ((float) $diff < (float) $this->settings->decimal('entry_threshold_percent')) {
                 return null;
             }
