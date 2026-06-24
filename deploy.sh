@@ -21,7 +21,7 @@ for host in $hosts; do
   echo 'prepare directories'
   ssh -p 22 -i $HOME/.ssh/phnx-DB-production ubuntu@$host "
     sudo mkdir -p /var/www/wallbot && \
-    sudo mkdir -p /var/www/wallbot/storage /var/www/wallbot/storage/framework/tmp /var/www/wallbot/bootstrap/cache && \
+    sudo mkdir -p /var/www/wallbot/storage/app/private /var/www/wallbot/storage/framework/tmp /var/www/wallbot/storage/framework/cache /var/www/wallbot/storage/framework/sessions /var/www/wallbot/storage/framework/views /var/www/wallbot/storage/logs /var/www/wallbot/bootstrap/cache && \
     sudo chown -R ubuntu:www-data /var/www/wallbot
   "
 

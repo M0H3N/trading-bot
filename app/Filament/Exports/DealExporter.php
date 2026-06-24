@@ -4,11 +4,10 @@ namespace App\Filament\Exports;
 
 use App\Models\Deal;
 use Filament\Actions\Exports\ExportColumn;
-use Filament\Actions\Exports\Exporter;
 use Filament\Actions\Exports\Models\Export;
 use Illuminate\Support\Number;
 
-class DealExporter extends Exporter
+class DealExporter extends BaseExporter
 {
     protected static ?string $model = Deal::class;
 

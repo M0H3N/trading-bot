@@ -4,11 +4,10 @@ namespace App\Filament\Exports;
 
 use App\Models\TradingOrder;
 use Filament\Actions\Exports\ExportColumn;
-use Filament\Actions\Exports\Exporter;
 use Filament\Actions\Exports\Models\Export;
 use Illuminate\Support\Number;
 
-class TradingOrderExporter extends Exporter
+class TradingOrderExporter extends BaseExporter
 {
     protected static ?string $model = TradingOrder::class;
 

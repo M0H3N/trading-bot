@@ -6,6 +6,7 @@ use App\Http\Middleware\LogViewerBasicAuth;
 use App\Support\HtmlSanitizer\LegacyDomHtmlParser;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\ServiceProvider;
 use Opcodes\LogViewer\Facades\LogViewer;
 use Symfony\Component\HtmlSanitizer\HtmlSanitizer;
@@ -27,9 +28,15 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        $this->ensureFilamentExportStorageExists();
         $this->registerLogViewerAuth();
         $this->registerHttpLogDatabaseConnection();
         $this->registerFilamentHtmlSanitizerFallback();
+    }
+
+    protected function ensureFilamentExportStorageExists(): void
+    {
+        Storage::disk('local')->makeDirectory('filament_exports');
     }
 
     protected function registerLogViewerAuth(): void
