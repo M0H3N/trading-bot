@@ -31,11 +31,19 @@ class TradingSettingsService
         return (string) $this->get('trading_mode', config('trading.mode', 'paper'));
     }
 
-    public function minOrderSum(string $quoteAsset): float
+    public function entryMinOrderSum(string $quoteAsset): float
     {
         return match (strtoupper($quoteAsset)) {
             'USDT' => (float) $this->decimal('min_order_sum_usdt'),
             default => (float) $this->decimal('min_order_sum_tmn'),
+        };
+    }
+
+    public function exitMinOrderSum(string $quoteAsset): float
+    {
+        return match (strtoupper($quoteAsset)) {
+            'USDT' => (float) '1',
+            default => (float) '50000',
         };
     }
 

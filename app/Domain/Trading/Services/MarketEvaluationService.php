@@ -43,6 +43,8 @@ class MarketEvaluationService
 
             $diff = $this->pricing->percentDifference($averageWallex, $fair->price);
 
+            dd($diff ,(float) $this->settings->decimal('entry_threshold_percent') );
+
 
             if ((float) $diff < (float) $this->settings->decimal('entry_threshold_percent')) {
                 return null;
@@ -65,7 +67,7 @@ class MarketEvaluationService
             }
 
             $orderSum = $orderPrice * $amount;
-            if ($orderSum < $this->settings->minOrderSum($market->quote_asset)) {
+            if ($orderSum < $this->settings->entryMinOrderSum($market->quote_asset)) {
                 return null;
             }
 

@@ -48,6 +48,19 @@ class WallexClient implements ExchangeClient
         });
     }
 
+    /**
+     * @return array<string, array<string, mixed>>
+     */
+    public function getAllMarkets(): array
+    {
+        return $this->circuitBreaker->guard('wallex', 'market-data', function (): array {
+            $payload = $this->send('market-data', 'GET', '/all-markets')->throw()->json();
+            $symbols = Arr::get($payload, 'result.symbols', []);
+
+            return is_array($symbols) ? $symbols : [];
+        });
+    }
+
     public function getOrderBook(string $symbol): OrderBook
     {
         return $this->circuitBreaker->guard('wallex', 'market-data', function () use ($symbol): OrderBook {

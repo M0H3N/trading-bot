@@ -149,7 +149,7 @@ class ExitManagementService
         $market = $deal->market()->firstOrFail();
         $notional = $remaining * $deal->exit_average_price;
 
-        if ($notional >= $this->settings->minOrderSum($market->quote_asset)) {
+        if ($notional >= $this->settings->exitMinOrderSum($market->quote_asset)) {
             return false;
         }
 
