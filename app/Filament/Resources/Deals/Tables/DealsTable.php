@@ -2,10 +2,12 @@
 
 namespace App\Filament\Resources\Deals\Tables;
 
-use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteBulkAction;
+use App\Filament\Exports\DealExporter;
 use Filament\Actions\EditAction;
+use Filament\Actions\ExportAction;
+use Filament\Actions\Exports\Enums\ExportFormat;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 
 class DealsTable
@@ -23,8 +25,21 @@ class DealsTable
                 TextColumn::make('realized_pnl_percent')->suffix('%')->sortable(),
                 TextColumn::make('updated_at')->dateTime()->sortable(),
             ])
+            ->filters([
+                SelectFilter::make('market')
+                    ->relationship('market', 'symbol')
+                    ->searchable()
+                    ->preload(),
+            ])
             ->defaultSort('id', 'desc')
-            ->recordActions([EditAction::make()])
-            ->toolbarActions([BulkActionGroup::make([DeleteBulkAction::make()])]);
+            ->headerActions([
+                ExportAction::make()
+                    ->exporter(DealExporter::class)
+                    ->formats([
+                        ExportFormat::Csv,
+                        ExportFormat::Xlsx,
+                    ]),
+            ])
+            ->recordActions([EditAction::make()]);
     }
 }

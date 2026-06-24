@@ -2,10 +2,12 @@
 
 namespace App\Filament\Resources\Trades\Tables;
 
-use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteBulkAction;
+use App\Filament\Exports\TradeExporter;
 use Filament\Actions\EditAction;
+use Filament\Actions\ExportAction;
+use Filament\Actions\Exports\Enums\ExportFormat;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 
 class TradesTable
@@ -22,8 +24,21 @@ class TradesTable
                 TextColumn::make('quote_amount'),
                 TextColumn::make('filled_at')->dateTime()->sortable(),
             ])
+            ->filters([
+                SelectFilter::make('market')
+                    ->relationship('market', 'symbol')
+                    ->searchable()
+                    ->preload(),
+            ])
             ->defaultSort('id', 'desc')
-            ->recordActions([EditAction::make()])
-            ->toolbarActions([BulkActionGroup::make([DeleteBulkAction::make()])]);
+            ->headerActions([
+                ExportAction::make()
+                    ->exporter(TradeExporter::class)
+                    ->formats([
+                        ExportFormat::Csv,
+                        ExportFormat::Xlsx,
+                    ]),
+            ])
+            ->recordActions([EditAction::make()]);
     }
 }
