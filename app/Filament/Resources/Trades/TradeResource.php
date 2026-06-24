@@ -3,7 +3,6 @@
 namespace App\Filament\Resources\Trades;
 
 use App\Filament\Resources\Trades\Pages\CreateTrade;
-use App\Filament\Resources\Trades\Pages\EditTrade;
 use App\Filament\Resources\Trades\Pages\ListTrades;
 use App\Filament\Resources\Trades\Schemas\TradeForm;
 use App\Filament\Resources\Trades\Tables\TradesTable;
@@ -13,6 +12,7 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 use UnitEnum;
 
 class TradeResource extends Resource
@@ -45,7 +45,11 @@ class TradeResource extends Resource
         return [
             'index' => ListTrades::route('/'),
             'create' => CreateTrade::route('/create'),
-            'edit' => EditTrade::route('/{record}/edit'),
         ];
+    }
+
+    public static function canEdit(Model $record): bool
+    {
+        return false;
     }
 }

@@ -3,9 +3,13 @@
 namespace App\Filament\Resources\Deals\Tables;
 
 use App\Filament\Exports\DealExporter;
-use Filament\Actions\EditAction;
+use App\Filament\Tables\Filters\DealIdFilter;
+use App\Domain\Trading\Services\TradeRecorder;
+use App\Models\Deal;
+use Filament\Actions\Action;
 use Filament\Actions\ExportAction;
 use Filament\Actions\Exports\Enums\ExportFormat;
+use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -16,9 +20,18 @@ class DealsTable
     {
         return $table
             ->columns([
+                TextColumn::make('id')->label('Deal ID')->sortable()->copyable(),
                 TextColumn::make('market.symbol')->label('Market')->sortable(),
                 TextColumn::make('mode')->badge(),
-                TextColumn::make('status')->badge()->sortable(),
+                TextColumn::make('status')
+                    ->badge()
+                    ->sortable()
+                    ->color(fn (string $state): string => match ($state) {
+                        'manually_closed', 'stop_loss' => 'danger',
+                        'closed' => 'success',
+                        'entered', 'exiting' => 'warning',
+                        default => 'gray',
+                    }),
                 TextColumn::make('entry_average_price'),
                 TextColumn::make('entry_amount'),
                 TextColumn::make('realized_pnl')->sortable(),
@@ -26,6 +39,10 @@ class DealsTable
                 TextColumn::make('updated_at')->dateTime()->sortable(),
             ])
             ->filters([
+                DealIdFilter::make('id'),
+                SelectFilter::make('status')
+                    ->options(self::statusOptions())
+                    ->multiple(),
                 SelectFilter::make('market')
                     ->relationship('market', 'symbol')
                     ->searchable()
@@ -40,6 +57,44 @@ class DealsTable
                         ExportFormat::Xlsx,
                     ]),
             ])
-            ->recordActions([EditAction::make()]);
+            ->recordActions([
+                Action::make('closeManually')
+                    ->label('Close manually')
+                    ->color('danger')
+                    ->requiresConfirmation()
+                    ->modalHeading('Close deal manually?')
+                    ->modalDescription('This deal will be marked as manually closed. Exit management will stop and it will be treated like a closed deal.')
+                    ->modalSubmitActionLabel('Yes, close deal')
+                    ->visible(fn (Deal $record): bool => ! $record->isClosed())
+                    ->action(function (Deal $record, TradeRecorder $recorder): void {
+                        $record->forceFill([
+                            'status' => 'manually_closed',
+                            'closed_at' => now(),
+                        ])->save();
+
+                        $recorder->recalculateDeal($record->refresh());
+
+                        Notification::make()
+                            ->title('Deal closed manually')
+                            ->success()
+                            ->send();
+                    }),
+            ])
+            ->recordUrl(null);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public static function statusOptions(): array
+    {
+        return [
+            'opening' => 'Opening',
+            'entered' => 'Entered',
+            'exiting' => 'Exiting',
+            'stop_loss' => 'Stop Loss',
+            'closed' => 'Closed',
+            'manually_closed' => 'Manually closed',
+        ];
     }
 }

@@ -3,7 +3,7 @@
 namespace App\Filament\Resources\Trades\Tables;
 
 use App\Filament\Exports\TradeExporter;
-use Filament\Actions\EditAction;
+use App\Filament\Tables\Filters\DealIdFilter;
 use Filament\Actions\ExportAction;
 use Filament\Actions\Exports\Enums\ExportFormat;
 use Filament\Tables\Columns\TextColumn;
@@ -16,8 +16,8 @@ class TradesTable
     {
         return $table
             ->columns([
+                TextColumn::make('deal_id')->label('Deal ID')->sortable()->copyable(),
                 TextColumn::make('market.symbol')->label('Market'),
-                TextColumn::make('deal_id')->sortable(),
                 TextColumn::make('side')->badge(),
                 TextColumn::make('price'),
                 TextColumn::make('amount'),
@@ -25,6 +25,7 @@ class TradesTable
                 TextColumn::make('filled_at')->dateTime()->sortable(),
             ])
             ->filters([
+                DealIdFilter::make(),
                 SelectFilter::make('market')
                     ->relationship('market', 'symbol')
                     ->searchable()
@@ -39,6 +40,6 @@ class TradesTable
                         ExportFormat::Xlsx,
                     ]),
             ])
-            ->recordActions([EditAction::make()]);
+            ->recordUrl(null);
     }
 }

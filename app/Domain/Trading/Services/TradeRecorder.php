@@ -88,7 +88,7 @@ class TradeRecorder
         $status = $deal->status;
 
         if ($deal->isClosed()) {
-            $status = 'closed';
+            $status = $deal->status;
         } elseif ($entryAmount > 0 && $exitAmount <= 0) {
             $status = 'entered';
         } elseif ($exitAmount > 0 && $exitAmount < $entryAmount) {
@@ -104,7 +104,7 @@ class TradeRecorder
             'exit_amount' => number_format($exitAmount, 12, '.', ''),
             'realized_pnl' => number_format($pnl, 12, '.', ''),
             'realized_pnl_percent' => number_format($pnlPercent, 8, '.', ''),
-            'closed_at' => $status === 'closed' ? now() : $deal->closed_at,
+            'closed_at' => $deal->isClosed() ? ($deal->closed_at ?? now()) : $deal->closed_at,
         ])->save();
     }
 

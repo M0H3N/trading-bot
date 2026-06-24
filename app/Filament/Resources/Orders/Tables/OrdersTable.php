@@ -3,7 +3,7 @@
 namespace App\Filament\Resources\Orders\Tables;
 
 use App\Filament\Exports\TradingOrderExporter;
-use Filament\Actions\EditAction;
+use App\Filament\Tables\Filters\DealIdFilter;
 use Filament\Actions\ExportAction;
 use Filament\Actions\Exports\Enums\ExportFormat;
 use Filament\Tables\Columns\TextColumn;
@@ -16,6 +16,7 @@ class OrdersTable
     {
         return $table
             ->columns([
+                TextColumn::make('deal_id')->label('Deal ID')->sortable()->copyable(),
                 TextColumn::make('market.symbol')->label('Market')->sortable(),
                 TextColumn::make('side')->badge(),
                 TextColumn::make('mode')->badge(),
@@ -27,6 +28,17 @@ class OrdersTable
                 TextColumn::make('updated_at')->dateTime()->sortable(),
             ])
             ->filters([
+                DealIdFilter::make(),
+                SelectFilter::make('status')
+                    ->options([
+                        'pending' => 'Pending',
+                        'open' => 'Open',
+                        'partially_filled' => 'Partially filled',
+                        'filled' => 'Filled',
+                        'cancelled' => 'Cancelled',
+                        'failed' => 'Failed',
+                    ])
+                    ->multiple(),
                 SelectFilter::make('market')
                     ->relationship('market', 'symbol')
                     ->searchable()
@@ -41,6 +53,6 @@ class OrdersTable
                         ExportFormat::Xlsx,
                     ]),
             ])
-            ->recordActions([EditAction::make()]);
+            ->recordUrl(null);
     }
 }

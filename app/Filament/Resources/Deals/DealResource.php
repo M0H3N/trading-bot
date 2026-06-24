@@ -3,7 +3,6 @@
 namespace App\Filament\Resources\Deals;
 
 use App\Filament\Resources\Deals\Pages\CreateDeal;
-use App\Filament\Resources\Deals\Pages\EditDeal;
 use App\Filament\Resources\Deals\Pages\ListDeals;
 use App\Filament\Resources\Deals\Schemas\DealForm;
 use App\Filament\Resources\Deals\Tables\DealsTable;
@@ -13,6 +12,7 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 use UnitEnum;
 
 class DealResource extends Resource
@@ -45,7 +45,11 @@ class DealResource extends Resource
         return [
             'index' => ListDeals::route('/'),
             'create' => CreateDeal::route('/create'),
-            'edit' => EditDeal::route('/{record}/edit'),
         ];
+    }
+
+    public static function canEdit(Model $record): bool
+    {
+        return false;
     }
 }

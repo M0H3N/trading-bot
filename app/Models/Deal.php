@@ -12,6 +12,8 @@ class Deal extends Model
 {
     use HasFactory;
 
+    public const CLOSED_STATUSES = ['closed', 'manually_closed'];
+
     protected $fillable = [
         'market_id',
         'mode',
@@ -43,12 +45,12 @@ class Deal extends Model
 
     public function scopeClose(Builder $query): Builder
     {
-        return $query->where('status', 'closed');
+        return $query->whereIn('status', self::CLOSED_STATUSES);
     }
 
     public function isClosed(): bool
     {
-        return $this->status === 'closed';
+        return in_array($this->status, self::CLOSED_STATUSES, true);
     }
 
     public function market(): BelongsTo
