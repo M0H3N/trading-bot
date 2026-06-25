@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Domain\Trading\Services\TradingSettingsService;
+use App\Jobs\Trading\ExpireOpeningDealsJob;
 use App\Models\TradingSetting;
 use BackedEnum;
 use Filament\Actions\Action;
@@ -254,6 +255,10 @@ class TradingSettings extends Page
     public function save(): void
     {
         $data = $this->form->getState();
+        $wasEvaluationEnabled = filter_var(
+            TradingSetting::query()->where('key', 'market_evaluation_enabled')->value('value'),
+            FILTER_VALIDATE_BOOLEAN,
+        );
 
         if (! empty($data['market_evaluation_enabled'])) {
             $data['exit_management_enabled'] = true;
@@ -263,6 +268,10 @@ class TradingSettings extends Page
             TradingSetting::query()->where('key', $key)->update([
                 'value' => is_bool($value) ? ($value ? '1' : '0') : (string) $value,
             ]);
+        }
+
+        if ($wasEvaluationEnabled && empty($data['market_evaluation_enabled'])) {
+            ExpireOpeningDealsJob::dispatch();
         }
 
         Notification::make()

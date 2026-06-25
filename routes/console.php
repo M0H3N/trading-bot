@@ -27,3 +27,8 @@ Schedule::command('trading:dispatch --scope=exit')
     ->name('trading:manage-exits')
     ->everyThirtySeconds()
     ->withoutOverlapping();
+
+Schedule::command('trading:expire-opening-deals')
+    ->name('trading:expire-opening-deals')
+    ->everyMinute()
+    ->withoutOverlapping();

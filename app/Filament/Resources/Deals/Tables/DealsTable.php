@@ -30,6 +30,7 @@ class DealsTable
                     ->color(fn (string $state): string => match ($state) {
                         'manually_closed', 'stop_loss' => 'danger',
                         'closed' => 'success',
+                        'expired' => 'gray',
                         'entered', 'exiting' => 'warning',
                         default => 'gray',
                     }),
@@ -106,6 +107,7 @@ class DealsTable
             'exiting' => 'Exiting',
             'stop_loss' => 'Stop Loss',
             'closed' => 'Closed',
+            'expired' => 'Expired',
             'manually_closed' => 'Manually closed',
         ];
     }
