@@ -6,7 +6,7 @@ use App\Domain\Trading\Services\UnexitedPositionService;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
-use Illuminate\Database\Eloquent\Builder;
+use Livewire\Attributes\On;
 
 class UnexitedPositionsWidget extends TableWidget
 {
@@ -14,11 +14,19 @@ class UnexitedPositionsWidget extends TableWidget
 
     protected static ?int $sort = 2;
 
+    #[On('pnl-reset')]
+    public function handlePnlReset(): void
+    {
+        $this->flushCachedTableRecords();
+    }
+
     public function table(Table $table): Table
     {
         return $table
             ->heading('Unexited positions by base asset')
-            ->query(fn (): Builder => app(UnexitedPositionService::class)->aggregatedByBaseAssetQuery())
+            ->records(fn (): array => app(UnexitedPositionService::class)
+                ->adjustedAggregatedByBaseAsset()
+                ->all())
             ->columns([
                 TextColumn::make('base_asset')->label('Base asset')->sortable(),
                 TextColumn::make('total_unexited_amount')

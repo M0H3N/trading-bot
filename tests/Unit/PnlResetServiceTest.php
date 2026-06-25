@@ -3,6 +3,7 @@
 namespace Tests\Unit;
 
 use App\Domain\Trading\Services\PnlResetService;
+use App\Domain\Trading\Services\UnexitedPositionService;
 use App\Models\Deal;
 use App\Models\Market;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -44,5 +45,6 @@ class PnlResetServiceTest extends TestCase
 
         $this->assertSame(0.0, $service->adjustedRealizedTmn());
         $this->assertSame(0.0, $service->adjustedUnrealizedTmn());
+        $this->assertSame([], app(UnexitedPositionService::class)->adjustedAggregatedByBaseAsset()->all());
     }
 }

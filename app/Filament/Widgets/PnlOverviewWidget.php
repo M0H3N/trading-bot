@@ -33,15 +33,16 @@ class PnlOverviewWidget extends BaseWidget implements HasActions
                     ->color('warning')
                     ->requiresConfirmation()
                     ->modalHeading('Reset TMN PnL?')
-                    ->modalDescription('Realized PnL (TMN) and Unrealized PnL (TMN) will be set to zero from this point forward. Open positions and deal history are unchanged.')
+                    ->modalDescription('Realized PnL (TMN), Unrealized PnL (TMN), and unexited positions will be set to zero from this point forward. Open positions and deal history are unchanged.')
                     ->modalSubmitActionLabel('Yes, reset')
                     ->action(function (PnlResetService $service): void {
                         $service->resetTmn();
                         $this->cachedStats = null;
+                        $this->dispatch('pnl-reset');
 
                         Notification::make()
                             ->title('PnL reset')
-                            ->body('Realized and unrealized PnL (TMN) now start from zero.')
+                            ->body('Realized and unrealized PnL (TMN) and unexited positions now start from zero.')
                             ->success()
                             ->send();
                     }),
