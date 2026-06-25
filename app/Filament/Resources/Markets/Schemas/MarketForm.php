@@ -20,6 +20,7 @@ class MarketForm
                 Select::make('quote_asset')->options(['TMN' => 'TMN', 'USDT' => 'USDT'])->default('TMN')->required(),
                 TextInput::make('tick_size')->numeric()->default(1)->required(),
                 TextInput::make('step_size')->numeric()->default(1)->required(),
+                TextInput::make('last_price')->numeric()->default(0)->required(),
                 TextInput::make('min_order_amount')->numeric()->default(0)->required(),
                 Toggle::make('is_active')->label('Active'),
             ])->columns(2),

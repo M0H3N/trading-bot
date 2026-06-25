@@ -8,8 +8,8 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
-Schedule::command('markets:sync-sizes')
-    ->name('markets:sync-sizes')
+Schedule::command('markets:sync')
+    ->name('markets:sync')
     ->everyMinute()
     ->withoutOverlapping();
 

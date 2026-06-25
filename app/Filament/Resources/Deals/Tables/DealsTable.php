@@ -12,6 +12,7 @@ use Filament\Actions\Exports\Enums\ExportFormat;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 
 class DealsTable
@@ -36,6 +37,12 @@ class DealsTable
                 TextColumn::make('entry_amount'),
                 TextColumn::make('realized_pnl')->sortable(),
                 TextColumn::make('realized_pnl_percent')->suffix('%')->sortable(),
+                TextColumn::make('exited')
+                    ->badge()
+                    ->formatStateUsing(fn (bool $state): string => $state ? 'Yes' : 'No')
+                    ->color(fn (bool $state): string => $state ? 'success' : 'gray')
+                    ->sortable(),
+                TextColumn::make('unexited_amount')->sortable(),
                 TextColumn::make('updated_at')->dateTime()->sortable(),
             ])
             ->filters([
@@ -43,6 +50,11 @@ class DealsTable
                 SelectFilter::make('status')
                     ->options(self::statusOptions())
                     ->multiple(),
+                TernaryFilter::make('exited')
+                    ->label('Exited')
+                    ->placeholder('All deals')
+                    ->trueLabel('Exited')
+                    ->falseLabel('Not exited'),
                 SelectFilter::make('market')
                     ->relationship('market', 'symbol')
                     ->searchable()

@@ -21,6 +21,7 @@ class MarketsTable
                 TextColumn::make('quote_asset'),
                 TextColumn::make('tick_size'),
                 TextColumn::make('step_size'),
+                TextColumn::make('last_price')->sortable(),
                 IconColumn::make('is_active')->boolean(),
                 TextColumn::make('updated_at')->dateTime()->sortable(),
             ])

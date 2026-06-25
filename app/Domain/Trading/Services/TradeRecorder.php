@@ -56,6 +56,7 @@ class TradeRecorder
         }
 
         $deal->loadMissing('trades');
+        $market = $deal->market;
 
         $entries = $deal->trades->where('side', 'buy');
         $exits = $deal->trades->where('side', 'sell');
@@ -71,19 +72,26 @@ class TradeRecorder
 
         $feeInQuote = (float) $deal->trades->sum(fn (Trade $trade): float => $this->feeInQuote($trade));
 
-
-        if($deal->isClosed()){
-            $pnl = $exitQuote - $entryQuote - $feeInQuote;
-            $pnlPercent = $entryQuote > 0 ? ($pnl / $entryQuote) * 100 : 0;
-        }else{
-            $pnl = 0;
-            $pnlPercent = 0;
-        }
-
-
         $entryAmount = number_format($entryAmount, 12, '.', '');
         $exitAmount = number_format($exitAmount, 12, '.', '');
 
+        $unexitedAmount = 0;
+        $pnl = 0;
+        $pnlPercent = 0;
+        $exited = false;
+
+
+        if ($deal->isClosed()) {
+            if ($deal->status === 'closed' && (($entryAmount - $exitAmount) * $entryAverage) <= $this->minDiffEntryExit($market->quote_asset)) {
+                $pnl = $exitQuote - $entryQuote - $feeInQuote;
+                $pnlPercent = $entryQuote > 0 ? ($pnl / $entryQuote) * 100 : 0;
+            }else{
+                $unexitedAmount =  $entryAmount - $exitAmount;
+                $exited = false;
+                $pnl = 0;
+                $pnlPercent = 0;
+            }
+        }
 
         $status = $deal->status;
 
@@ -95,7 +103,6 @@ class TradeRecorder
             $status = 'exiting';
         }
 
-
         $deal->forceFill([
             'status' => $status,
             'entry_average_price' => number_format($entryAverage, 12, '.', ''),
@@ -104,6 +111,8 @@ class TradeRecorder
             'exit_amount' => number_format($exitAmount, 12, '.', ''),
             'realized_pnl' => number_format($pnl, 12, '.', ''),
             'realized_pnl_percent' => number_format($pnlPercent, 8, '.', ''),
+            'exited' => $exited,
+            'unexited_amount' => number_format($unexitedAmount, 12, '.', ''),
             'closed_at' => $deal->isClosed() ? ($deal->closed_at ?? now()) : $deal->closed_at,
         ])->save();
     }
@@ -121,5 +130,13 @@ class TradeRecorder
         }
 
         return $fee;
+    }
+
+    protected function minDiffEntryExit(string $quoteAsset): float
+    {
+        return match (strtoupper($quoteAsset)) {
+            'USDT' => (float) '1',
+            default => (float) '50000',
+        };
     }
 }

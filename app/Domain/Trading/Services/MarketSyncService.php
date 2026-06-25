@@ -6,7 +6,7 @@ use App\Infrastructure\Exchange\Wallex\WallexClient;
 use App\Models\Market;
 use Illuminate\Support\Arr;
 
-class MarketSizeSyncService
+class MarketSyncService
 {
     public function __construct(
         private readonly WallexClient $wallexClient,
@@ -33,26 +33,34 @@ class MarketSizeSyncService
                     return;
                 }
 
+                $updates = [];
+
                 $tickSize = Arr::get($exchangeMarket, 'tickSize');
                 $stepSize = Arr::get($exchangeMarket, 'stepSize');
 
-                if ($tickSize === null || $stepSize === null) {
-                    $missing++;
+                if ($tickSize !== null && $stepSize !== null) {
+                    if (! $this->sameSize($market->tick_size, $tickSize)) {
+                        $updates['tick_size'] = $tickSize;
+                    }
 
-                    return;
+                    if (! $this->sameSize($market->step_size, $stepSize)) {
+                        $updates['step_size'] = $stepSize;
+                    }
                 }
 
-                if ($this->sameSize($market->tick_size, $tickSize) && $this->sameSize($market->step_size, $stepSize)) {
+                $lastPrice = Arr::get($exchangeMarket, 'stats.lastPrice');
+
+                if ($lastPrice !== null && ! $this->samePrice($market->last_price, $lastPrice)) {
+                    $updates['last_price'] = number_format((float) $lastPrice, 12, '.', '');
+                }
+
+                if ($updates === []) {
                     $skipped++;
 
                     return;
                 }
 
-                $market->update([
-                    'tick_size' => $tickSize,
-                    'step_size' => $stepSize,
-                ]);
-
+                $market->update($updates);
                 $updated++;
             });
 
@@ -62,5 +70,10 @@ class MarketSizeSyncService
     private function sameSize(mixed $stored, mixed $api): bool
     {
         return (string) (int) $stored === (string) (int) $api;
+    }
+
+    private function samePrice(mixed $stored, mixed $api): bool
+    {
+        return number_format((float) $stored, 12, '.', '') === number_format((float) $api, 12, '.', '');
     }
 }

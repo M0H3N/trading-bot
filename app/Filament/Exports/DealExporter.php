@@ -24,6 +24,8 @@ class DealExporter extends BaseExporter
             ExportColumn::make('exit_amount'),
             ExportColumn::make('realized_pnl'),
             ExportColumn::make('realized_pnl_percent'),
+            ExportColumn::make('exited'),
+            ExportColumn::make('unexited_amount'),
             ExportColumn::make('opened_at'),
             ExportColumn::make('closed_at'),
             ExportColumn::make('created_at'),

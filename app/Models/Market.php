@@ -18,6 +18,7 @@ class Market extends Model
         'quote_asset',
         'tick_size',
         'step_size',
+        'last_price',
         'min_order_amount',
         'is_active',
         'metadata',

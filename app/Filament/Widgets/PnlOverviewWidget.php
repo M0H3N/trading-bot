@@ -2,6 +2,7 @@
 
 namespace App\Filament\Widgets;
 
+use App\Domain\Trading\Services\UnexitedPositionService;
 use App\Models\Deal;
 use App\Models\TradingOrder;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
@@ -17,6 +18,7 @@ class PnlOverviewWidget extends BaseWidget
         return [
             $this->realizedPnlStat('TMN', $realizedPnlByQuote),
             $this->realizedPnlStat('USDT', $realizedPnlByQuote),
+            $this->unrealizedPnlTmnStat(),
             Stat::make('Open Deals', (string) Deal::query()->open()->count()),
             Stat::make('Active Orders', (string) TradingOrder::query()->active()->count()),
         ];
@@ -45,5 +47,14 @@ class PnlOverviewWidget extends BaseWidget
         return Stat::make("Realized PnL ({$quoteAsset})", number_format($pnl, 2).' '.$quoteAsset)
             ->description('Sum of closed deal PnL in '.$quoteAsset)
             ->color($pnl >= 0 ? 'success' : 'danger');
+    }
+
+    protected function unrealizedPnlTmnStat(): Stat
+    {
+        $value = app(UnexitedPositionService::class)->totalUnrealizedValueTmn();
+
+        return Stat::make('Unrealized PnL (TMN)', number_format($value, 2).' TMN')
+            ->description('Sum of unexited amount × last price per market')
+            ->color('info');
     }
 }

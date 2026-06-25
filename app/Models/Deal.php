@@ -24,6 +24,8 @@ class Deal extends Model
         'exit_amount',
         'realized_pnl',
         'realized_pnl_percent',
+        'exited',
+        'unexited_amount',
         'metadata',
         'opened_at',
         'closed_at',
@@ -32,6 +34,7 @@ class Deal extends Model
     protected function casts(): array
     {
         return [
+            'exited' => 'boolean',
             'metadata' => 'array',
             'opened_at' => 'datetime',
             'closed_at' => 'datetime',
