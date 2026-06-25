@@ -13,11 +13,18 @@ use Filament\Schemas\Components\Component;
 use Filament\Schemas\Components\Section;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
+use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\Collection;
+use Illuminate\Support\HtmlString;
 
 class PnlOverviewWidget extends BaseWidget implements HasActions
 {
     use InteractsWithActions;
+
+    /**
+     * @var view-string
+     */
+    protected string $view = 'filament.widgets.pnl-overview-widget';
 
     protected ?string $heading = 'PnL overview';
 
@@ -32,9 +39,12 @@ class PnlOverviewWidget extends BaseWidget implements HasActions
                     ->icon('heroicon-o-arrow-path')
                     ->color('warning')
                     ->requiresConfirmation()
-                    ->modalHeading('Reset TMN PnL?')
-                    ->modalDescription('Realized PnL (TMN), Unrealized PnL (TMN), and unexited positions will be set to zero from this point forward. Open positions and deal history are unchanged.')
-                    ->modalSubmitActionLabel('Yes, reset')
+                    ->modalIcon('heroicon-o-exclamation-triangle')
+                    ->modalIconColor('warning')
+                    ->modalHeading('Reset PnL?')
+                    ->modalDescription($this->resetPnlConfirmationMessage())
+                    ->modalSubmitActionLabel('Yes, reset all')
+                    ->modalCancelActionLabel('Cancel')
                     ->action(function (PnlResetService $service): void {
                         $service->resetTmn();
                         $this->cachedStats = null;
@@ -51,6 +61,19 @@ class PnlOverviewWidget extends BaseWidget implements HasActions
             ->columns($this->getColumns())
             ->contained(false)
             ->gridContainer();
+    }
+
+    protected function resetPnlConfirmationMessage(): Htmlable
+    {
+        return new HtmlString(
+            '<p class="mb-2">The following will be reset to zero:</p>'
+            .'<ul class="list-disc space-y-1 ps-5">'
+            .'<li><strong>Realized PnL (TMN)</strong></li>'
+            .'<li><strong>Unrealized PnL (TMN)</strong></li>'
+            .'<li><strong>Unexited positions</strong></li>'
+            .'</ul>'
+            .'<p class="mt-3 text-sm text-gray-500 dark:text-gray-400">Open positions and deal history are not deleted — only these dashboard counters restart from this point.</p>'
+        );
     }
 
     protected function getStats(): array
