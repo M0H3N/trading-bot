@@ -1,0 +1,31 @@
+---
+paths:
+  - app/Domain/Trading/**
+  - app/Jobs/Trading/**
+  - app/Models/TradingOrder.php
+  - app/Models/Deal.php
+  - app/Console/Commands/DispatchTradingJobs.php
+---
+
+# Trading Domain
+
+See `.ai/trading/architecture.md` for the full pipeline.
+
+## Entry vs exit (mandatory)
+
+| Side | Job | Service |
+|------|-----|---------|
+| buy | `MonitorOrderJob` | `OrderMonitoringService` |
+| sell | `ManageExitJob` | `ExitManagementService` |
+
+Do not apply entry logic (asks depth, `entry_threshold_percent`, `MarketEvaluationService`) to sell orders.
+
+## Scopes
+
+- `TradingOrder::entry()` → buy
+- `TradingOrder::exit()` → sell
+- `monitorable()` must be combined with `entry()` when dispatching `MonitorOrderJob`
+
+## Locks
+
+Use `Cache::lock` with `config('trading.lock_ttl')` for order/deal/market mutations.

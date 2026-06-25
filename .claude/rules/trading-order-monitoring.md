@@ -1,0 +1,24 @@
+---
+paths:
+  - app/Domain/Trading/Services/OrderMonitoringService.php
+  - app/Jobs/Trading/MonitorOrderJob.php
+  - app/Console/Commands/DispatchTradingJobs.php
+  - app/Models/TradingOrder.php
+---
+
+# Order Monitoring (Buy Only)
+
+Full doc: `.ai/trading/order-monitoring.md`
+
+## Rules
+
+1. `MonitorOrderJob` dispatches only for `monitorable()->entry()` orders.
+2. Sell monitoring belongs in `ExitManagementService::monitorExitOrder()`, triggered by `ManageExitJob`.
+3. `scopeMonitorable()` may include non-buy active orders — always filter `->entry()` at dispatch (or tighten the scope).
+4. `OrderMonitoringService` cancels unfilled buys when opportunity is gone or blocked; then re-evaluates the market.
+
+## Anti-patterns
+
+- Dispatching `MonitorOrderJob` for `side = sell`
+- Adding exit repricing / stop-loss logic to `OrderMonitoringService`
+- Using `asks` depth checks for sell order decisions
