@@ -2,6 +2,7 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Widgets\OpenOrdersWidget;
 use App\Filament\Widgets\PnlOverviewWidget;
 use App\Filament\Widgets\UnexitedPositionsWidget;
 use Filament\Http\Middleware\Authenticate;
@@ -42,6 +43,7 @@ class AdminPanelProvider extends PanelProvider
             ->widgets([
                 PnlOverviewWidget::class,
                 UnexitedPositionsWidget::class,
+                OpenOrdersWidget::class,
                 AccountWidget::class,
                 FilamentInfoWidget::class,
             ])
