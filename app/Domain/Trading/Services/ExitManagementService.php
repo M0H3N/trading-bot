@@ -82,6 +82,17 @@ class ExitManagementService
         $book = $client->getOrderBook($order->symbol);
         $fair = $client->getFairPrice($order->symbol);
         $topAsk = $book->topAsk();
+
+        if ($deal->status === 'stop_loss' && $topAsk) {
+            $tickSize = (int) $market->tick_size;
+            $orderPrice = number_format((float) $order->price, $tickSize, '.', '');
+            $topAskPrice = number_format((float) $topAsk->price, $tickSize, '.', '');
+
+            if ($orderPrice === $topAskPrice) {
+                return;
+            }
+        }
+
         $currentPercent = (float) ($order->metadata['exit_percent'] ?? $this->settings->decimal('initial_exit_percent'));
         $nextPercent = max((float) $this->settings->decimal('minimum_exit_percent'), $currentPercent - (float) $this->settings->decimal('exit_step_percent'));
         $desiredPrice = (float) $deal->entry_average_price * (1 + ($nextPercent / 100));
