@@ -106,6 +106,7 @@ class ExitManagementService
     {
         $market = $deal->market()->firstOrFail();
         $price = $forcedPrice ?? number_format((float) $deal->entry_average_price * (1 + ($exitPercent / 100)), $market->tick_size, '.', '');
+        $formattedAmount = $this->floorAmount($amount, $market->step_size);
 
         $client = $this->exchanges->client($market->exchange, $deal->mode);
         $clientId = $this->clientIds->make($market, 'sell');
@@ -117,7 +118,7 @@ class ExitManagementService
             side: 'sell',
             type: 'limit',
             price: $price,
-            amount: number_format($amount, $market->step_size, '.', ''),
+            amount: $formattedAmount,
             clientId: $clientId,
             mode: $deal->mode,
         ));
@@ -136,8 +137,8 @@ class ExitManagementService
             'type' => 'limit',
             'status' => $placed->status,
             'price' => $price,
-            'amount' => number_format($amount, $market->step_size, '.', ''),
-            'quote_amount' => number_format((float) $price * $amount, 12, '.', ''),
+            'amount' => $formattedAmount,
+            'quote_amount' => number_format((float) $price * (float) $formattedAmount, 12, '.', ''),
             'filled_amount' => $placed->status === 'filled'
                 ? (EntryOrderPayload::filledAmount($placed->raw) ?? '0')
                 : '0',
@@ -159,6 +160,14 @@ class ExitManagementService
         }
 
         return $order;
+    }
+
+    protected function floorAmount(float $amount, mixed $stepSize): string
+    {
+        $precision = (int) $stepSize;
+        $multiplier = 10 ** $precision;
+
+        return number_format(floor(round($amount * $multiplier, 10)) / $multiplier, $precision, '.', '');
     }
 
     protected function closeDealIfRemainderTooSmall(Deal $deal): bool
