@@ -26,8 +26,12 @@ class ExitManagementService
 
         Cache::lock("trading:deal:{$deal->id}", (int) config('trading.lock_ttl'))->block(5, function () use ($deal): void {
             $deal->refresh();
-            $remaining = $deal->remainingAmount();
 
+            if ($deal->hasActiveEntryOrder()) {
+                return;
+            }
+
+            $remaining = $deal->remainingAmount();
 
             if ($this->closeDealIfRemainderTooSmall($deal)) {
                 $this->closeDeal($deal);
@@ -183,8 +187,13 @@ class ExitManagementService
 
     protected function closeDealIfRemainderTooSmall(Deal $deal): bool
     {
-        if($deal->exit_average_price == 0)
+        if ($deal->hasActiveEntryOrder()) {
             return false;
+        }
+
+        if ($deal->exit_average_price == 0) {
+            return false;
+        }
 
         $remaining = $deal->remainingAmount();
 

@@ -71,6 +71,11 @@ class Deal extends Model
         return $this->hasMany(Trade::class);
     }
 
+    public function hasActiveEntryOrder(): bool
+    {
+        return $this->orders()->entry()->active()->exists();
+    }
+
     public function remainingAmount(): float
     {
         $buyFees = (float) $this->trades()
