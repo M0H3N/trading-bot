@@ -28,7 +28,7 @@ class DispatchTradingJobs extends Command
         }
 
         if (in_array($scope, ['all', 'monitor'], true)) {
-            TradingOrder::query()->monitorable()->pluck('id')->each(fn (int $id) => MonitorOrderJob::dispatch($id));
+            TradingOrder::query()->monitorable()->entry()->pluck('id')->each(fn (int $id) => MonitorOrderJob::dispatch($id));
         }
 
         if (in_array($scope, ['all', 'exit'], true) && $settings->exitManagementEnabled()) {
