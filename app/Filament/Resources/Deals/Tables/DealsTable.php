@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Deals\Tables;
 use App\Filament\Exports\DealExporter;
 use App\Filament\Tables\Filters\DealIdFilter;
 use App\Domain\Trading\Services\TradeRecorder;
+use App\Jobs\Trading\CancelDealExitOrdersJob;
 use App\Models\Deal;
 use Filament\Actions\Action;
 use Filament\Actions\ExportAction;
@@ -86,6 +87,8 @@ class DealsTable
                         ])->save();
 
                         $recorder->recalculateDeal($record->refresh());
+
+                        CancelDealExitOrdersJob::dispatch($record->id);
 
                         Notification::make()
                             ->title('Deal closed manually')
