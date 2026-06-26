@@ -5,6 +5,8 @@ return [
     'default_exchange' => env('TRADING_DEFAULT_EXCHANGE', 'wallex'),
     'queue' => env('TRADING_QUEUE', 'default'),
     'lock_ttl' => (int) env('TRADING_LOCK_TTL', 30),
+    'self_trade_match_window' => (int) env('TRADING_SELF_TRADE_MATCH_WINDOW', 120),
+    'wallet_guard_tolerance' => (float) env('TRADING_WALLET_GUARD_TOLERANCE', 1),
     'monitor_interval' => (int) env('TRADING_MONITOR_INTERVAL', 5),
     'exit_interval' => (int) env('TRADING_EXIT_INTERVAL', 30),
 

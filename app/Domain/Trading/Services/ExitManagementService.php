@@ -16,6 +16,7 @@ class ExitManagementService
         private readonly TradingSettingsService $settings,
         private readonly ClientOrderIdFactory $clientIds,
         private readonly TradeRecorder $tradeRecorder,
+        private readonly ExitWalletGuard $walletGuard,
     ) {}
 
     public function manage(Deal $deal): void
@@ -122,6 +123,14 @@ class ExitManagementService
         $market = $deal->market()->firstOrFail();
         $price = $forcedPrice ?? number_format((float) $deal->entry_average_price * (1 + ($exitPercent / 100)), $market->tick_size, '.', '');
         $formattedAmount = $this->floorAmount($amount, $market->step_size);
+
+        if ((float) $formattedAmount <= 0) {
+            return null;
+        }
+
+        if (! $this->walletGuard->canPlaceExit($deal, (float) $formattedAmount)) {
+            return null;
+        }
 
         $client = $this->exchanges->client($market->exchange, $deal->mode);
         $clientId = $this->clientIds->make($market, 'sell');

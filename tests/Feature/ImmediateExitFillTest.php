@@ -42,6 +42,17 @@ class ImmediateExitFillTest extends TestCase
         ]);
 
         Http::fake([
+            'api.wallex.ir/v1/account/balances' => Http::response([
+                'result' => [
+                    'balances' => [
+                        'BTC' => [
+                            'asset' => 'BTC',
+                            'value' => 1,
+                            'locked' => 0,
+                        ],
+                    ],
+                ],
+            ]),
             'api.wallex.ir/v1/account/orders' => Http::response([
                 'result' => [
                     'id' => 'exit-order-1',
