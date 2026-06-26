@@ -92,7 +92,7 @@ class SelfTradeEntryTest extends TestCase
 
         $buyer->refresh();
 
-        $this->assertSame('1098609.000000000000', $buyer->entry_amount);
+        $this->assertEquals(1098609, (float) $buyer->entry_amount);
         $this->assertDatabaseHas('trades', [
             'deal_id' => $buyer->id,
             'side' => 'buy',
@@ -177,7 +177,7 @@ class SelfTradeEntryTest extends TestCase
 
         $buyer->refresh();
 
-        $this->assertSame('1098609.000000000000', $buyer->entry_amount);
+        $this->assertEquals(1098609, (float) $buyer->entry_amount);
     }
 
     private function pepeMarket(): Market

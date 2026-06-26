@@ -124,10 +124,6 @@ class ExitManagementService
         $price = $forcedPrice ?? number_format((float) $deal->entry_average_price * (1 + ($exitPercent / 100)), $market->tick_size, '.', '');
         $formattedAmount = $this->floorAmount($amount, $market->step_size);
 
-        if ((float) $formattedAmount <= 0) {
-            return null;
-        }
-
         if (! $this->walletGuard->canPlaceExit($deal, (float) $formattedAmount)) {
             return null;
         }
