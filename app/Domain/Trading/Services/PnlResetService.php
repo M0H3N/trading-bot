@@ -9,8 +9,6 @@ class PnlResetService
 {
     public const REALIZED_TMN_BASELINE_KEY = 'pnl_realized_tmn_baseline';
 
-    public const UNREALIZED_TMN_BASELINE_KEY = 'pnl_unrealized_tmn_baseline';
-
     public const UNEXITED_BASELINES_KEY = 'pnl_unexited_baselines';
 
     public function __construct(
@@ -35,11 +33,6 @@ class PnlResetService
         return (float) TradingSetting::value(self::REALIZED_TMN_BASELINE_KEY, 0);
     }
 
-    public function unrealizedTmnBaseline(): float
-    {
-        return (float) TradingSetting::value(self::UNREALIZED_TMN_BASELINE_KEY, 0);
-    }
-
     public function adjustedRealizedTmn(): float
     {
         return $this->rawRealizedTmn() - $this->realizedTmnBaseline();
@@ -47,18 +40,17 @@ class PnlResetService
 
     public function adjustedUnrealizedTmn(): float
     {
-        return $this->rawUnrealizedTmn() - $this->unrealizedTmnBaseline();
+        return $this->unexitedPositionService->adjustedUnrealizedValueTmn();
     }
 
     public function resetTmn(): void
     {
         $this->storeBaseline(self::REALIZED_TMN_BASELINE_KEY, $this->rawRealizedTmn());
-        $this->storeBaseline(self::UNREALIZED_TMN_BASELINE_KEY, $this->rawUnrealizedTmn());
         $this->storeUnexitedBaselines();
     }
 
     /**
-     * @return array<string, array{amount: float, value_tmn: float}>
+     * @return array<string, array{amount: float}>
      */
     public function unexitedBaselines(): array
     {
@@ -83,7 +75,6 @@ class PnlResetService
 
             $baselines[(string) $baseAsset] = [
                 'amount' => (float) ($baseline['amount'] ?? 0),
-                'value_tmn' => (float) ($baseline['value_tmn'] ?? 0),
             ];
         }
 
@@ -97,7 +88,6 @@ class PnlResetService
         foreach ($this->unexitedPositionService->aggregatedByBaseAssetQuery()->get() as $row) {
             $baselines[(string) $row->base_asset] = [
                 'amount' => (float) $row->total_unexited_amount,
-                'value_tmn' => (float) $row->unrealized_value_tmn,
             ];
         }
 

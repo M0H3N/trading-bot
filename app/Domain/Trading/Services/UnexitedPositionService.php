@@ -32,21 +32,48 @@ class UnexitedPositionService
         $baselines = app(PnlResetService::class)->unexitedBaselines();
         $keyName = ArrayRecord::getKeyName();
 
+        if ($baselines === []) {
+            return $this->aggregatedByBaseAssetQuery()
+                ->get()
+                ->map(fn (Deal $row): array => [
+                    $keyName => (string) $row->base_asset,
+                    'base_asset' => (string) $row->base_asset,
+                    'total_unexited_amount' => (float) $row->total_unexited_amount,
+                    'unrealized_value_tmn' => (float) $row->unrealized_value_tmn,
+                ])
+                ->values();
+        }
+
         return $this->aggregatedByBaseAssetQuery()
             ->get()
-            ->map(function (Deal $row) use ($baselines, $keyName): array {
+            ->map(function (Deal $row) use ($baselines, $keyName): ?array {
                 $baseAsset = (string) $row->base_asset;
-                $baseline = $baselines[$baseAsset] ?? ['amount' => 0.0, 'value_tmn' => 0.0];
+                $baselineAmount = $baselines[$baseAsset]['amount'] ?? 0.0;
+                $currentAmount = (float) $row->total_unexited_amount;
+                $deltaAmount = $currentAmount - $baselineAmount;
+
+                if (abs($deltaAmount) < 1e-12) {
+                    return null;
+                }
+
+                $averagePrice = $currentAmount > 1e-12
+                    ? (float) $row->unrealized_value_tmn / $currentAmount
+                    : 0.0;
 
                 return [
                     $keyName => $baseAsset,
                     'base_asset' => $baseAsset,
-                    'total_unexited_amount' => max(0.0, (float) $row->total_unexited_amount - $baseline['amount']),
-                    'unrealized_value_tmn' => max(0.0, (float) $row->unrealized_value_tmn - $baseline['value_tmn']),
+                    'total_unexited_amount' => $deltaAmount,
+                    'unrealized_value_tmn' => $deltaAmount * $averagePrice,
                 ];
             })
-            ->filter(fn (array $row): bool => $row['total_unexited_amount'] > 1e-12 || $row['unrealized_value_tmn'] > 0.01)
+            ->filter()
             ->values();
+    }
+
+    public function adjustedUnrealizedValueTmn(): float
+    {
+        return (float) $this->adjustedAggregatedByBaseAsset()->sum('unrealized_value_tmn');
     }
 
     public function totalUnrealizedValueTmn(): float
