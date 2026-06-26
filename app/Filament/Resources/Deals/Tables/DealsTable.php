@@ -29,7 +29,7 @@ class DealsTable
                     ->badge()
                     ->sortable()
                     ->color(fn (string $state): string => match ($state) {
-                        'manually_closed', 'stop_loss' => 'danger',
+                        'manually_closed', 'stop_loss', 'insufficient_balance' => 'danger',
                         'closed' => 'success',
                         'expired' => 'gray',
                         'entered', 'exiting' => 'warning',
@@ -113,6 +113,7 @@ class DealsTable
             'stop_loss' => 'Stop Loss',
             'closed' => 'Closed',
             'expired' => 'Expired',
+            'insufficient_balance' => 'Insufficient balance',
             'manually_closed' => 'Manually closed',
         ];
     }

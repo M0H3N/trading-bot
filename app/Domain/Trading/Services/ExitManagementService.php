@@ -5,6 +5,7 @@ namespace App\Domain\Trading\Services;
 use App\Domain\Exchange\DTO\PlaceOrderData;
 use App\Domain\Exchange\ExchangeManager;
 use App\Models\Deal;
+use App\Models\Market;
 use App\Models\TradingOrder;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -16,7 +17,6 @@ class ExitManagementService
         private readonly TradingSettingsService $settings,
         private readonly ClientOrderIdFactory $clientIds,
         private readonly TradeRecorder $tradeRecorder,
-        private readonly ExitWalletGuard $walletGuard,
     ) {}
 
     public function manage(Deal $deal): void
@@ -36,6 +36,7 @@ class ExitManagementService
 
             if ($this->closeDealIfRemainderTooSmall($deal)) {
                 $this->closeDeal($deal);
+
                 return;
             }
 
@@ -64,9 +65,9 @@ class ExitManagementService
         $averagePrice = $status->averagePrice ?? EntryOrderPayload::averagePrice($status->raw);
         $filledAmount = EntryOrderPayload::filledAmount($status->raw);
 
-        if ($averagePrice !== null && $filledAmount !== null)
+        if ($averagePrice !== null && $filledAmount !== null) {
             $this->tradeRecorder->recordFilledOrder($order, $averagePrice, $filledAmount, $status->raw);
-
+        }
 
         $order->forceFill([
             'status' => $status->status,
@@ -103,10 +104,9 @@ class ExitManagementService
         $desiredPrice = (float) $deal->entry_average_price * (1 + ($nextPercent / 100));
         $stopLoss = abs($desiredPrice - (float) $fair->price) / (float) $fair->price * 100 >= (float) $this->settings->decimal('stop_loss_percent');
 
-
         if ($stopLoss) {
             $deal->forceFill(['status' => 'stop_loss'])->save();
-            $desiredPrice = (float)$topAsk->price;
+            $desiredPrice = (float) $topAsk->price;
             $nextPercent = 0.0;
         } elseif ($nextPercent <= (float) $this->settings->decimal('exit_top_ask_from_percent') && $topAsk) {
             $desiredPrice = (float) $topAsk->price;
@@ -124,14 +124,21 @@ class ExitManagementService
         $price = $forcedPrice ?? number_format((float) $deal->entry_average_price * (1 + ($exitPercent / 100)), $market->tick_size, '.', '');
         $formattedAmount = $this->floorAmount($amount, $market->step_size);
 
-        if (! $this->walletGuard->canPlaceExit($deal, (float) $formattedAmount)) {
-            return null;
+        $client = $this->exchanges->client($market->exchange, $deal->mode);
+
+        if ($deal->mode === 'live') {
+            $available = (float) $client->getBalance($market->base_asset)->available;
+
+            if ((float) $formattedAmount > $available) {
+                $this->markInsufficientBalance($deal, $market, (float) $formattedAmount, $available);
+
+                return null;
+            }
         }
 
-        $client = $this->exchanges->client($market->exchange, $deal->mode);
         $clientId = $this->clientIds->make($market, 'sell');
 
-        $clientId = 'Deal-'.$deal->id."-".$clientId;
+        $clientId = 'Deal-'.$deal->id.'-'.$clientId;
 
         $placed = $client->placeOrder(new PlaceOrderData(
             symbol: $market->symbol,
@@ -182,6 +189,31 @@ class ExitManagementService
         return $order;
     }
 
+    protected function markInsufficientBalance(Deal $deal, Market $market, float $requestedAmount, float $available): void
+    {
+        if ($deal->status === 'insufficient_balance') {
+            return;
+        }
+
+        Log::warning('Deal marked insufficient_balance: exit amount exceeds wallet balance.', [
+            'deal_id' => $deal->id,
+            'symbol' => $market->symbol,
+            'requested_amount' => $requestedAmount,
+            'available_balance' => $available,
+        ]);
+
+        $deal->forceFill([
+            'status' => 'insufficient_balance',
+            'metadata' => array_merge($deal->metadata ?? [], [
+                'insufficient_balance' => [
+                    'requested_amount' => number_format($requestedAmount, 12, '.', ''),
+                    'available_balance' => number_format($available, 12, '.', ''),
+                    'recorded_at' => now()->toIso8601String(),
+                ],
+            ]),
+        ])->save();
+    }
+
     protected function floorAmount(float $amount, mixed $stepSize): string
     {
         $precision = (int) $stepSize;
@@ -215,7 +247,7 @@ class ExitManagementService
         return true;
     }
 
-    protected function closeDeal(Deal $deal):void
+    protected function closeDeal(Deal $deal): void
     {
         $deal->forceFill([
             'status' => 'closed',

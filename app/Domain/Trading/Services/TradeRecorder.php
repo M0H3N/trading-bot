@@ -6,52 +6,16 @@ use App\Models\Deal;
 use App\Models\Trade;
 use App\Models\TradingOrder;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Log;
 
 class TradeRecorder
 {
-    public function __construct(
-        private readonly SelfTradeService $selfTrades,
-    ) {}
-
     /**
      * @param  array<string, mixed>  $exchangeRaw
      */
-    public function recordFilledOrder(TradingOrder $order, string $averagePrice, string $filledAmount, array $exchangeRaw = []): ?Trade
+    public function recordFilledOrder(TradingOrder $order, string $averagePrice, string $filledAmount, array $exchangeRaw = []): Trade
     {
-        $grossAmount = (float) $filledAmount;
-        $entryAmount = $grossAmount;
-        $metadata = ['source' => 'order_status'];
-
-        if ($order->side === 'buy') {
-            $entryAmount = $this->selfTrades->resolveBuyEntryAmount($order, $grossAmount, (float) $averagePrice);
-
-            if ($entryAmount <= 0) {
-                Log::info('Buy fill not recorded: quantity matched entirely as self-trade.', [
-                    'deal_id' => $order->deal_id,
-                    'order_id' => $order->id,
-                    'gross_amount' => $grossAmount,
-                ]);
-                $this->recalculateDeal($order->deal()->first());
-
-                return null;
-            }
-
-            if ($entryAmount < $grossAmount) {
-                $metadata['gross_amount'] = number_format($grossAmount, 12, '.', '');
-                $metadata['self_trade_excluded'] = number_format($grossAmount - $entryAmount, 12, '.', '');
-            }
-        }
-
         $fee = EntryOrderPayload::fee($exchangeRaw);
         $feeAsset = EntryOrderPayload::feeAsset($exchangeRaw);
-
-        if ($order->side === 'buy' && $grossAmount > 0 && $entryAmount < $grossAmount) {
-            $ratio = $entryAmount / $grossAmount;
-            $fee = number_format((float) $fee * $ratio, 12, '.', '');
-        }
-
-        $filledAmount = number_format($entryAmount, 12, '.', '');
 
         $trade = Trade::query()->firstOrCreate(
             ['order_id' => $order->id, 'side' => $order->side],
@@ -62,11 +26,11 @@ class TradeRecorder
                 'market_id' => $order->market_id,
                 'exchange_trade_id' => $order->external_id,
                 'mode' => $order->mode,
-                'quote_amount' => number_format((float) $averagePrice * $entryAmount, 12, '.', ''),
+                'quote_amount' => number_format((float) $averagePrice * (float) $filledAmount, 12, '.', ''),
                 'fee' => $fee,
                 'fee_asset' => $feeAsset,
                 'filled_at' => Carbon::now(),
-                'metadata' => $metadata,
+                'metadata' => ['source' => 'order_status'],
             ],
         );
 
@@ -76,18 +40,11 @@ class TradeRecorder
                 'fee_asset' => $feeAsset,
                 'amount' => $filledAmount,
                 'price' => $averagePrice,
-                'quote_amount' => number_format((float) $averagePrice * $entryAmount, 12, '.', ''),
-                'metadata' => array_merge($trade->metadata ?? [], $metadata),
+                'quote_amount' => number_format((float) $averagePrice * (float) $filledAmount, 12, '.', ''),
             ])->save();
         }
 
         $this->recalculateDeal($order->deal()->first());
-
-        if ($order->side === 'sell') {
-            foreach ($this->selfTrades->reconcileAfterSellTrade($trade) as $dealId) {
-                $this->recalculateDeal(Deal::query()->find($dealId));
-            }
-        }
 
         return $trade;
     }
@@ -123,13 +80,12 @@ class TradeRecorder
         $pnlPercent = 0;
         $exited = false;
 
-
         if ($deal->isClosed()) {
             if ($deal->status === 'closed' && (($entryAmount - $exitAmount) * $entryAverage) <= $this->minDiffEntryExit($market->quote_asset)) {
                 $pnl = $exitQuote - $entryQuote - $feeInQuote;
                 $pnlPercent = $entryQuote > 0 ? ($pnl / $entryQuote) * 100 : 0;
-            }else{
-                $unexitedAmount =  $entryAmount - $exitAmount;
+            } else {
+                $unexitedAmount = $entryAmount - $exitAmount;
                 $exited = false;
                 $pnl = 0;
                 $pnlPercent = 0;

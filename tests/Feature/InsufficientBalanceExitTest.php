@@ -11,11 +11,11 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
-class ExitWalletGuardTest extends TestCase
+class InsufficientBalanceExitTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_exit_is_blocked_when_open_deals_overbook_wallet(): void
+    public function test_deal_is_marked_insufficient_balance_when_exit_amount_exceeds_wallet(): void
     {
         app(TradingSettingsService::class)->syncDefaults();
         $this->setting('exit_management_enabled', '1');
@@ -30,31 +30,13 @@ class ExitWalletGuardTest extends TestCase
             'is_active' => true,
         ]);
 
-        Deal::query()->create([
-            'market_id' => $market->id,
-            'mode' => 'live',
-            'status' => 'entered',
-            'entry_average_price' => '0.3938',
-            'entry_amount' => '5487108',
-            'opened_at' => now(),
-        ]);
-
-        Deal::query()->create([
-            'market_id' => $market->id,
-            'mode' => 'live',
-            'status' => 'entered',
-            'entry_average_price' => '0.3937',
-            'entry_amount' => '6208220',
-            'opened_at' => now()->subMinute(),
-        ]);
-
         $deal = Deal::query()->create([
             'market_id' => $market->id,
             'mode' => 'live',
             'status' => 'entered',
             'entry_average_price' => '0.3940',
             'entry_amount' => '6267560',
-            'opened_at' => now()->subMinutes(2),
+            'opened_at' => now(),
         ]);
 
         Http::fake([
@@ -63,7 +45,7 @@ class ExitWalletGuardTest extends TestCase
                     'balances' => [
                         'PEPE' => [
                             'asset' => 'PEPE',
-                            'value' => 15407942,
+                            'value' => 1000000,
                             'locked' => 0,
                         ],
                     ],
@@ -73,13 +55,17 @@ class ExitWalletGuardTest extends TestCase
 
         app(ExitManagementService::class)->manage($deal);
 
+        $deal->refresh();
+
+        $this->assertSame('insufficient_balance', $deal->status);
         $this->assertDatabaseMissing('orders', [
             'deal_id' => $deal->id,
             'side' => 'sell',
         ]);
+        $this->assertArrayHasKey('insufficient_balance', $deal->metadata ?? []);
     }
 
-    public function test_exit_is_placed_when_wallet_covers_open_deal_remaining(): void
+    public function test_exit_is_placed_when_wallet_covers_exit_amount(): void
     {
         app(TradingSettingsService::class)->syncDefaults();
         $this->setting('exit_management_enabled', '1');
@@ -131,6 +117,39 @@ class ExitWalletGuardTest extends TestCase
             'deal_id' => $deal->id,
             'side' => 'sell',
         ]);
+        $this->assertSame('exiting', $deal->fresh()->status);
+    }
+
+    public function test_insufficient_balance_deal_is_not_managed_again(): void
+    {
+        app(TradingSettingsService::class)->syncDefaults();
+        $this->setting('exit_management_enabled', '1');
+
+        $market = Market::query()->create([
+            'exchange' => 'wallex',
+            'symbol' => 'PEPETMN',
+            'base_asset' => 'PEPE',
+            'quote_asset' => 'TMN',
+            'tick_size' => '4',
+            'step_size' => '0',
+            'is_active' => true,
+        ]);
+
+        $deal = Deal::query()->create([
+            'market_id' => $market->id,
+            'mode' => 'live',
+            'status' => 'insufficient_balance',
+            'entry_average_price' => '0.3940',
+            'entry_amount' => '6267560',
+            'opened_at' => now(),
+        ]);
+
+        Http::fake();
+
+        app(ExitManagementService::class)->manage($deal);
+
+        Http::assertNothingSent();
+        $this->assertSame('insufficient_balance', $deal->fresh()->status);
     }
 
     private function setting(string $key, string $value): void

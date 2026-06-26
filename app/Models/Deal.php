@@ -12,7 +12,7 @@ class Deal extends Model
 {
     use HasFactory;
 
-    public const CLOSED_STATUSES = ['closed', 'manually_closed'];
+    public const CLOSED_STATUSES = ['closed', 'manually_closed', 'insufficient_balance'];
 
     protected $fillable = [
         'market_id',
