@@ -6,6 +6,7 @@ use App\Domain\Trading\Services\ExitManagementService;
 use App\Domain\Trading\Services\TradingSettingsService;
 use App\Models\Deal;
 use App\Models\Market;
+use App\Models\TradingOrder;
 use App\Models\TradingSetting;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -48,6 +49,61 @@ class ExitRemainderMinOrderSumTest extends TestCase
         $this->assertSame('closed', $deal->status);
         $this->assertNotNull($deal->closed_at);
         $this->assertDatabaseCount('orders', 0);
+    }
+
+    public function test_exit_closes_entered_deal_when_position_notional_is_below_min_order_sum(): void
+    {
+        app(TradingSettingsService::class)->syncDefaults();
+        $this->setting('exit_management_enabled', '1');
+        $this->setting('min_order_sum_tmn', '50000');
+
+        $market = Market::query()->create([
+            'exchange' => 'wallex',
+            'symbol' => 'PEPETMN',
+            'base_asset' => 'PEPE',
+            'quote_asset' => 'TMN',
+            'tick_size' => '4',
+            'step_size' => '0',
+            'is_active' => true,
+        ]);
+
+        $deal = Deal::query()->create([
+            'market_id' => $market->id,
+            'mode' => 'live',
+            'status' => 'entered',
+            'entry_average_price' => '0.3940',
+            'entry_amount' => '2771',
+            'exit_average_price' => '0',
+            'exit_amount' => '0',
+            'opened_at' => now(),
+        ]);
+
+        TradingOrder::query()->create([
+            'market_id' => $market->id,
+            'deal_id' => $deal->id,
+            'exchange' => 'wallex',
+            'symbol' => 'PEPETMN',
+            'client_id' => 'tb-wallex-pepetmn-buy-test',
+            'mode' => 'live',
+            'side' => 'buy',
+            'type' => 'limit',
+            'status' => 'cancelled',
+            'price' => '0.3940',
+            'amount' => '6052471',
+            'filled_amount' => '2771',
+            'quote_amount' => '1091.7740',
+        ]);
+
+        app(ExitManagementService::class)->manage($deal);
+
+        $deal->refresh();
+
+        $this->assertSame('closed', $deal->status);
+        $this->assertNotNull($deal->closed_at);
+        $this->assertDatabaseMissing('orders', [
+            'deal_id' => $deal->id,
+            'side' => 'sell',
+        ]);
     }
 
     public function test_exit_closes_usdt_deal_when_remainder_notional_is_below_min_order_sum(): void

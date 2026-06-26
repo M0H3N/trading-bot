@@ -191,10 +191,6 @@ class ExitManagementService
             return false;
         }
 
-        if ($deal->exit_average_price == 0) {
-            return false;
-        }
-
         $remaining = $deal->remainingAmount();
 
         if ($remaining <= 0) {
@@ -202,12 +198,14 @@ class ExitManagementService
         }
 
         $market = $deal->market()->firstOrFail();
-        $notional = $remaining * $deal->exit_average_price;
+        $price = (float) $deal->exit_average_price > 0
+            ? (float) $deal->exit_average_price
+            : (float) $deal->entry_average_price;
+        $notional = $remaining * $price;
 
         if ($notional >= $this->settings->exitMinOrderSum($market->quote_asset)) {
             return false;
         }
-
 
         return true;
     }
