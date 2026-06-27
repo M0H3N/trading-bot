@@ -45,7 +45,7 @@ return [
     'exchanges' => [
         'wallex' => [
             'base_url' => env('WALLEX_BASE_URL', 'https://api.wallex.ir/v1'),
-            'api_key' => env('WALLEX_API_KEY','18601|3rk4zqe4QK7aa2M3EOc6R5eYofD2w75Ua6LUrd6p'),
+            'api_key' => env('WALLEX_API_KEY','17991|I2AqF7Y6XjefVMLonxxqh1tNInnsLvbnKhviR6l2'),
             'timeout' => (int) env('WALLEX_TIMEOUT', 10),
             'retry_times' => (int) env('WALLEX_RETRY_TIMES', 3),
             'retry_sleep_ms' => (int) env('WALLEX_RETRY_SLEEP_MS', 250),
