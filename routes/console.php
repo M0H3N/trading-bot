@@ -10,25 +10,20 @@ Artisan::command('inspire', function () {
 
 Schedule::command('markets:sync')
     ->name('markets:sync')
-    ->everyMinute()
-    ->withoutOverlapping();
+    ->everyMinute();
 
 Schedule::command('trading:dispatch --scope=evaluate')
     ->name('trading:evaluate-markets')
-    ->everyMinute()
-    ->withoutOverlapping();
+    ->everyMinute();
 
 Schedule::command('trading:dispatch --scope=monitor')
     ->name('trading:monitor-orders')
-    ->everyTenSeconds()
-    ->withoutOverlapping();
+    ->everyTenSeconds();
 
 Schedule::command('trading:dispatch --scope=exit')
     ->name('trading:manage-exits')
-    ->everyThirtySeconds()
-    ->withoutOverlapping();
+    ->everyThirtySeconds();
 
 Schedule::command('trading:expire-opening-deals')
     ->name('trading:expire-opening-deals')
-    ->everyMinute()
-    ->withoutOverlapping();
+    ->everyMinute();
