@@ -47,12 +47,12 @@ class MarketEvaluationService
                 return null;
             }
 
-            $topAsk = $book->topAsk();
-            if (! $topAsk) {
+            $topBid = $book->topBid();
+            if (! $topBid) {
                 return null;
             }
 
-            $orderPrice = (float) $topAsk->price *  (float)$this->settings->decimal('tick_offset');
+            $orderPrice = (float) $topBid->price * (float) $this->settings->decimal('tick_offset');
             $balance = $client->getBalance($market->quote_asset);
 
 
