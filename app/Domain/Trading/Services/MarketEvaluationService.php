@@ -38,8 +38,17 @@ class MarketEvaluationService
             $client = $this->exchanges->client($market->exchange, $mode);
             $fair = $client->getFairPrice($market->symbol);
             $book = $client->getOrderBook($market->symbol);
-            $usdt = $client->getFairPrice('USDTTMN');
-            $averageWallex = $this->pricing->averagePriceOfDepth($book,'asks' ,$usdt->price, $this->settings->decimal('depth_usd'));
+            $depthUsd = $this->settings->decimal('depth_usd');
+            $usdtTmnPrice = $market->quote_asset === 'TMN'
+                ? $this->pricing->averagePriceOfDepth(
+                    $client->getOrderBook('USDTTMN'),
+                    'bids',
+                    $depthUsd,
+                    'USDT',
+                    depthInBaseAsset: true,
+                )
+                : null;
+            $averageWallex = $this->pricing->averagePriceOfDepth($book, 'bids', $depthUsd, $market->quote_asset, $usdtTmnPrice);
 
             $diff = $this->pricing->percentDifference($averageWallex, $fair->price);
 
@@ -52,7 +61,7 @@ class MarketEvaluationService
                 return null;
             }
 
-            $orderPrice = (float) $topBid->price * (float) $this->settings->decimal('tick_offset');
+            $orderPrice = (float) $topBid->price + $market->minPriceIncrement();
             $balance = $client->getBalance($market->quote_asset);
 
 
@@ -101,7 +110,7 @@ class MarketEvaluationService
                     'price' => number_format($orderPrice, $market->tick_size, '.', ''),
                     'amount' => number_format($amount, $market->step_size, '.', ''),
                     'quote_amount' => number_format($orderPrice * $amount, 12, '.', ''),
-                    'tick_offset' => $this->settings->int('tick_offset'),
+                    'tick_offset' => (int) $market->tick_size,
                     'filled_amount' => $placed->status === 'filled'
                         ? (EntryOrderPayload::filledAmount($placed->raw) ?? '0')
                         : '0',

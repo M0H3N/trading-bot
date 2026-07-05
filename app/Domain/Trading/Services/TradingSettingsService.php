@@ -47,6 +47,14 @@ class TradingSettingsService
         };
     }
 
+    public function blockerThreshold(string $quoteAsset): string
+    {
+        return match (strtoupper($quoteAsset)) {
+            'USDT' => $this->decimal('blocker_threshold_usdt'),
+            default => $this->decimal('blocker_threshold_tmn'),
+        };
+    }
+
     public function marketEvaluationEnabled(): bool
     {
         return $this->bool('market_evaluation_enabled');

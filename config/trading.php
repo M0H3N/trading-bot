@@ -22,6 +22,7 @@ return [
         'min_order_sum_tmn' => '50000',
         'min_order_sum_usdt' => '1',
         'blocker_threshold_tmn' => '15000000',
+        'blocker_threshold_usdt' => '100',
         'tick_offset' => '4',
         'depth_usd' => '2000',
     ],

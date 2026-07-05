@@ -51,13 +51,28 @@ class OrderMonitoringService
             if($status->isFilled())
                 return;
 
+            $market = $order->market()->firstOrFail();
             $book = $client->getOrderBook($order->symbol);
             $fair = $client->getFairPrice($order->symbol);
-            $usdt = $client->getFairPrice('USDTTMN');
-            $averageWallex = $this->pricing->averagePriceOfDepth($book,'asks' ,$usdt->price, $this->settings->decimal('depth_usd'));
+            $depthUsd = $this->settings->decimal('depth_usd');
+            $usdtTmnPrice = $market->quote_asset === 'TMN'
+                ? $this->pricing->averagePriceOfDepth(
+                    $client->getOrderBook('USDTTMN'),
+                    'bids',
+                    $depthUsd,
+                    'USDT',
+                    depthInBaseAsset: true,
+                )
+                : null;
+            $averageWallex = $this->pricing->averagePriceOfDepth($book, 'asks', $depthUsd, $market->quote_asset, $usdtTmnPrice);
             $diff = $this->pricing->percentDifference($averageWallex, $fair->price);
             $opportunityGone = (float) $diff < (float) $this->settings->decimal('entry_threshold_percent');
-            $blocked = $this->pricing->hasAnyOrderAbove($book, (string) $order->price, $this->settings->decimal('blocker_threshold_tmn'));
+            $blocked = $this->pricing->hasAnyOrderAbove(
+                $book,
+                (string) $order->price,
+                $market->quote_asset,
+                $this->settings->blockerThreshold($market->quote_asset),
+            );
 
             if (! $opportunityGone && ! $blocked) {
                 return;
@@ -67,7 +82,7 @@ class OrderMonitoringService
             $order->forceFill(['status' => 'cancelled'])->save();
 
             if (! $opportunityGone) {
-                $this->marketEvaluation->evaluate($order->market()->firstOrFail());
+                $this->marketEvaluation->evaluate($market);
             }
         });
     }

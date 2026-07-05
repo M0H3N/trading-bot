@@ -46,4 +46,11 @@ class Market extends Model
     {
         return $this->hasMany(Deal::class);
     }
+
+    public function minPriceIncrement(): float
+    {
+        $tickSize = (int) $this->tick_size;
+
+        return $tickSize === 0 ? 1.0 : 10 ** -$tickSize;
+    }
 }
