@@ -24,4 +24,15 @@ final readonly class OrderBook
     {
         return $this->asks[0] ?? null;
     }
+
+    public function firstBidWithMinNotional(float $threshold): ?OrderBookLevel
+    {
+        foreach ($this->bids as $level) {
+            if ($level->notional() >= $threshold) {
+                return $level;
+            }
+        }
+
+        return null;
+    }
 }

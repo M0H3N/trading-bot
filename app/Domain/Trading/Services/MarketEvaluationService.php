@@ -56,7 +56,7 @@ class MarketEvaluationService
                 return null;
             }
 
-            $topBid = $book->topBid();
+            $topBid = $book->firstBidWithMinNotional((float) $this->settings->blockerThreshold($market->quote_asset));
             if (! $topBid) {
                 return null;
             }
