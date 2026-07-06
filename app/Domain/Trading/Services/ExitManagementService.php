@@ -122,13 +122,16 @@ class ExitManagementService
     {
         $market = $deal->market()->firstOrFail();
         $price = $forcedPrice ?? number_format((float) $deal->entry_average_price * (1 + ($exitPercent / 100)), $market->tick_size, '.', '');
-        $formattedAmount = $this->floorAmount($amount, $market->step_size);
-
         $client = $this->exchanges->client($market->exchange, $deal->mode);
 
         if ($deal->mode === 'live') {
             $available = (float) $client->getBalance($market->base_asset)->available;
+            $amount = min($amount, $available);
+        }
 
+        $formattedAmount = $this->floorAmount($amount, $market->step_size);
+
+        if ($deal->mode === 'live') {
             if ((float) $formattedAmount > $available) {
                 $this->markInsufficientBalance($deal, $market, (float) $formattedAmount, $available);
 
@@ -214,12 +217,21 @@ class ExitManagementService
         ])->save();
     }
 
-    protected function floorAmount(float $amount, mixed $stepSize): string
+    protected function floorAmount(float|string $amount, mixed $stepSize): string
     {
         $precision = (int) $stepSize;
-        $multiplier = 10 ** $precision;
+        $scale = max($precision + 4, 12);
+        $amountStr = is_string($amount)
+            ? $amount
+            : number_format((float) $amount, $scale, '.', '');
 
-        return number_format(floor(round($amount * $multiplier, 10)) / $multiplier, $precision, '.', '');
+        if ($precision === 0) {
+            return bcadd($amountStr, '0', 0);
+        }
+
+        $factor = bcpow('10', (string) $precision, 0);
+
+        return bcdiv(bcmul($amountStr, $factor, 0), $factor, $precision);
     }
 
     protected function closeDealIfRemainderTooSmall(Deal $deal): bool

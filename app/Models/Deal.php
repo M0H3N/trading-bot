@@ -78,10 +78,23 @@ class Deal extends Model
 
     public function remainingAmount(): float
     {
-        $buyFees = (float) $this->trades()
-            ->where('side', 'buy')
-            ->sum('fee');
+        $precision = (int) $this->market()->value('step_size');
+        $scale = max($precision + 4, 12);
 
-        return max(0.0, (float) $this->entry_amount - (float) $buyFees -  (float) $this->exit_amount);
+        $entryAmount = bcadd(number_format((float) $this->entry_amount, $scale, '.', ''), '0', $scale);
+        $exitAmount = bcadd(number_format((float) $this->exit_amount, $scale, '.', ''), '0', $scale);
+        $buyFees = bcadd(number_format((float) $this->trades()->where('side', 'buy')->sum('fee'), $scale, '.', ''), '0', $scale);
+
+        $oneStep = $precision > 0
+            ? bcdiv('1', bcpow('10', (string) $precision, 0), $scale)
+            : '1';
+
+        if (bccomp($buyFees, $oneStep, $scale) < 0) {
+            $buyFees = '0';
+        }
+
+        $remaining = bcsub(bcsub($entryAmount, $buyFees, $scale), $exitAmount, $scale);
+
+        return max(0.0, (float) $remaining);
     }
 }
