@@ -16,6 +16,7 @@ class OrderMonitoringService
         private readonly OrderBookPricingService $pricing,
         private readonly MarketEvaluationService $marketEvaluation,
         private readonly TradeRecorder $tradeRecorder,
+        private readonly ExpireOpeningDealsService $expireOpeningDeals,
     ) {}
 
     public function monitor(TradingOrder $order): void
@@ -80,6 +81,10 @@ class OrderMonitoringService
 
             $client->cancelOrder($order->client_id);
             $order->forceFill(['status' => 'cancelled'])->save();
+
+            if ($order->deal_id) {
+                $this->expireOpeningDeals->expireAbandonedOpeningDeal($order->deal_id);
+            }
 
             if (! $opportunityGone) {
                 $this->marketEvaluation->evaluate($market);

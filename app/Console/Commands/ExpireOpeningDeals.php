@@ -2,7 +2,6 @@
 
 namespace App\Console\Commands;
 
-use App\Domain\Trading\Services\TradingSettingsService;
 use App\Jobs\Trading\ExpireOpeningDealsJob;
 use Illuminate\Console\Command;
 
@@ -10,14 +9,10 @@ class ExpireOpeningDeals extends Command
 {
     protected $signature = 'trading:expire-opening-deals';
 
-    protected $description = 'Dispatch job to cancel opening deal entry orders and expire deals when market evaluation is disabled.';
+    protected $description = 'Dispatch job to expire abandoned opening deals and cancel active entry orders when market evaluation is disabled.';
 
-    public function handle(TradingSettingsService $settings): int
+    public function handle(): int
     {
-        if ($settings->marketEvaluationEnabled()) {
-            return self::SUCCESS;
-        }
-
         ExpireOpeningDealsJob::dispatch();
 
         $this->components->info('Expire opening deals job dispatched.');

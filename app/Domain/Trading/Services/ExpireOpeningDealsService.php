@@ -18,14 +18,15 @@ class ExpireOpeningDealsService
 
     public function expire(): void
     {
-        if ($this->settings->marketEvaluationEnabled()) {
-            return;
-        }
-
         Deal::query()
             ->where('status', 'opening')
             ->pluck('id')
             ->each(fn (int $dealId) => $this->expireDeal($dealId));
+    }
+
+    public function expireAbandonedOpeningDeal(int $dealId): void
+    {
+        $this->expireDeal($dealId);
     }
 
     protected function expireDeal(int $dealId): void
@@ -37,12 +38,14 @@ class ExpireOpeningDealsService
                 return;
             }
 
-            $deal->orders()
-                ->entry()
-                ->active()
-                ->each(fn (TradingOrder $order) => $this->cancelBuyOrder($order));
+            if (! $this->settings->marketEvaluationEnabled()) {
+                $deal->orders()
+                    ->entry()
+                    ->active()
+                    ->each(fn (TradingOrder $order) => $this->cancelBuyOrder($order));
 
-            $deal->refresh();
+                $deal->refresh();
+            }
 
             if ($this->hasBlockingEntryOrders($deal)) {
                 return;
@@ -57,6 +60,10 @@ class ExpireOpeningDealsService
 
     protected function hasBlockingEntryOrders(Deal $deal): bool
     {
+        if ($deal->trades()->where('side', 'buy')->exists()) {
+            return true;
+        }
+
         if ($deal->orders()->entry()->active()->exists()) {
             return true;
         }

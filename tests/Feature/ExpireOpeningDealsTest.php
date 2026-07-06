@@ -18,7 +18,7 @@ class ExpireOpeningDealsTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_expire_service_does_nothing_when_market_evaluation_is_enabled(): void
+    public function test_expire_service_does_not_cancel_active_orders_when_market_evaluation_is_enabled(): void
     {
         app(TradingSettingsService::class)->syncDefaults();
         $this->setting('market_evaluation_enabled', '1');
@@ -30,6 +30,20 @@ class ExpireOpeningDealsTest extends TestCase
         $deal->refresh();
         $this->assertSame('opening', $deal->status);
         $this->assertDatabaseHas('orders', ['deal_id' => $deal->id, 'status' => 'open']);
+    }
+
+    public function test_expire_service_expires_abandoned_opening_deals_when_market_evaluation_is_enabled(): void
+    {
+        app(TradingSettingsService::class)->syncDefaults();
+        $this->setting('market_evaluation_enabled', '1');
+
+        $deal = $this->openingDealWithBuyOrder(status: 'cancelled');
+
+        app(ExpireOpeningDealsService::class)->expire();
+
+        $deal->refresh();
+        $this->assertSame('expired', $deal->status);
+        $this->assertNotNull($deal->closed_at);
     }
 
     public function test_expire_service_cancels_active_buy_orders_and_expires_opening_deals(): void
@@ -66,18 +80,11 @@ class ExpireOpeningDealsTest extends TestCase
         $this->assertDatabaseHas('orders', ['deal_id' => $deal->id, 'status' => 'filled']);
     }
 
-    public function test_command_dispatches_job_only_when_market_evaluation_is_disabled(): void
+    public function test_command_dispatches_job(): void
     {
         Bus::fake();
 
         app(TradingSettingsService::class)->syncDefaults();
-        $this->setting('market_evaluation_enabled', '1');
-
-        $this->artisan('trading:expire-opening-deals')->assertSuccessful();
-
-        Bus::assertNotDispatched(ExpireOpeningDealsJob::class);
-
-        $this->setting('market_evaluation_enabled', '0');
 
         $this->artisan('trading:expire-opening-deals')->assertSuccessful();
 
