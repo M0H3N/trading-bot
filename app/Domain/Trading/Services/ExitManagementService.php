@@ -142,6 +142,10 @@ class ExitManagementService
             return null;
         }
 
+        if ($deal->mode === 'live' && (float) $price * (float) $formattedAmount < $this->settings->exitMinOrderSum($market->quote_asset)) {
+            return null;
+        }
+
         $clientId = $this->clientIds->make($market, 'sell');
 
         $clientId = 'Deal-'.$deal->id.'-'.$clientId;
