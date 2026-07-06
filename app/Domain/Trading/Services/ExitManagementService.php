@@ -138,6 +138,10 @@ class ExitManagementService
             }
         }
 
+        if ($deal->mode === 'live' && (float) $formattedAmount <= 0) {
+            return null;
+        }
+
         $clientId = $this->clientIds->make($market, 'sell');
 
         $clientId = 'Deal-'.$deal->id.'-'.$clientId;

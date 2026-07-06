@@ -120,6 +120,55 @@ class InsufficientBalanceExitTest extends TestCase
         $this->assertSame('exiting', $deal->fresh()->status);
     }
 
+    public function test_exit_is_skipped_when_wallet_balance_floors_to_zero(): void
+    {
+        app(TradingSettingsService::class)->syncDefaults();
+        $this->setting('exit_management_enabled', '1');
+
+        $market = Market::query()->create([
+            'exchange' => 'wallex',
+            'symbol' => 'TRXTMN',
+            'base_asset' => 'TRX',
+            'quote_asset' => 'TMN',
+            'tick_size' => '0',
+            'step_size' => '1',
+            'is_active' => true,
+        ]);
+
+        $deal = Deal::query()->create([
+            'market_id' => $market->id,
+            'mode' => 'live',
+            'status' => 'entered',
+            'entry_average_price' => '58000',
+            'entry_amount' => '46.7',
+            'opened_at' => now(),
+        ]);
+
+        Http::fake([
+            'api.wallex.ir/v1/account/balances' => Http::response([
+                'result' => [
+                    'balances' => [
+                        'TRX' => [
+                            'asset' => 'TRX',
+                            'value' => 0.06397,
+                            'locked' => 0,
+                        ],
+                    ],
+                ],
+            ]),
+        ]);
+
+        app(ExitManagementService::class)->manage($deal);
+
+        Http::assertNotSent(fn ($request): bool => $request->method() === 'POST'
+            && str_contains($request->url(), '/account/orders'));
+        $this->assertDatabaseMissing('orders', [
+            'deal_id' => $deal->id,
+            'side' => 'sell',
+        ]);
+        $this->assertSame('entered', $deal->fresh()->status);
+    }
+
     public function test_insufficient_balance_deal_is_not_managed_again(): void
     {
         app(TradingSettingsService::class)->syncDefaults();
