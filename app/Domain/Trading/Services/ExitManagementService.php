@@ -99,8 +99,9 @@ class ExitManagementService
             }
         }
 
+        $floorPercent = (float) $this->settings->decimal('exit_top_ask_from_percent');
         $currentPercent = (float) ($order->metadata['exit_percent'] ?? $this->settings->decimal('initial_exit_percent'));
-        $nextPercent = max((float) $this->settings->decimal('minimum_exit_percent'), $currentPercent - (float) $this->settings->decimal('exit_step_percent'));
+        $nextPercent = max($floorPercent, $currentPercent - (float) $this->settings->decimal('exit_step_percent'));
         $desiredPrice = (float) $deal->entry_average_price * (1 + ($nextPercent / 100));
         $stopLoss = abs($desiredPrice - (float) $fair->price) / (float) $fair->price * 100 >= (float) $this->settings->decimal('stop_loss_percent');
 
@@ -108,8 +109,6 @@ class ExitManagementService
             $deal->forceFill(['status' => 'stop_loss'])->save();
             $desiredPrice = (float) $topAsk->price;
             $nextPercent = 0.0;
-        } elseif ($nextPercent <= (float) $this->settings->decimal('exit_top_ask_from_percent') && $topAsk) {
-            $desiredPrice = (float) $topAsk->price;
         }
 
         $client->cancelOrder($order->client_id);
