@@ -109,7 +109,7 @@ class TradeRecorder
         if ($deal->isClosed()) {
             $status = $deal->status;
         } elseif ($entryAmount > 0 && $exitAmount <= 0) {
-            $status = 'entered';
+            $status = $deal->hasActiveEntryOrder() ? 'opening' : 'entered';
         } elseif ($exitAmount > 0 && $exitAmount < $entryAmount) {
             $status = $deal->status === 'stop_loss' ? 'stop_loss' : 'exiting';
         }

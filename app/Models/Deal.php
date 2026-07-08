@@ -118,6 +118,15 @@ class Deal extends Model
             ->exists();
     }
 
+    public function isFullyEntered(): bool
+    {
+        if ((float) $this->entry_amount <= 0) {
+            return false;
+        }
+
+        return in_array($this->status, ['entered', 'exiting', 'stop_loss'], true);
+    }
+
     public function remainingAmount(): float
     {
         $market = $this->market()->first(['step_size', 'base_asset']);

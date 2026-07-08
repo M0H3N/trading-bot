@@ -16,7 +16,6 @@ php artisan trading:dispatch --scope=exit     # فقط ManageExitJob (sell)
 | `trading:dispatch --scope=evaluate` | هر ۱ دقیقه | `EvaluateMarketJob` per active market |
 | `trading:dispatch --scope=monitor` | هر ۱۰ ثانیه | `MonitorOrderJob` per `monitorable()->entry()` |
 | `trading:dispatch --scope=exit` | هر ۳۰ ثانیه | `ManageExitJob` per open deal |
-| `trading:expire-opening-deals` | هر ۱ دقیقه | انقضای dealهای opening |
 | `markets:sync` | هر ۱ دقیقه | sync بازارها |
 
 ## Feature toggles
@@ -63,5 +62,5 @@ Env: `TRADING_QUEUE_EVALUATE`, `TRADING_QUEUE_MONITOR`, `TRADING_QUEUE_EXIT`, `T
 
 | Job | Trigger |
 |-----|---------|
-| `ExpireOpeningDealsJob` | schedule |
+| `ExpireOpeningDealsJob` | غیرفعال شدن `market_evaluation_enabled` (Filament) یا cancel entry در `OrderMonitoringService` |
 | `CancelDealExitOrdersJob` | manual / Filament action |

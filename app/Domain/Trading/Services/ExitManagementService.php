@@ -23,14 +23,14 @@ class ExitManagementService
 
     public function manage(Deal $deal): void
     {
-        if (! $this->settings->exitManagementEnabled() || ! in_array($deal->status, ['entered', 'exiting', 'stop_loss'], true)) {
+        if (! $this->settings->exitManagementEnabled() || ! $deal->isFullyEntered()) {
             return;
         }
 
         Cache::lock("trading:deal:{$deal->id}", (int) config('trading.lock_ttl'))->block(5, function () use ($deal): void {
             $deal->refresh();
 
-            if ($deal->hasActiveEntryOrder()) {
+            if (! $deal->isFullyEntered()) {
                 return;
             }
 
@@ -388,10 +388,6 @@ class ExitManagementService
 
     protected function closeDealIfRemainderTooSmall(Deal $deal): bool
     {
-        if ($deal->hasActiveEntryOrder()) {
-            return false;
-        }
-
         $remaining = $deal->remainingAmount();
 
         if ($remaining <= 0) {

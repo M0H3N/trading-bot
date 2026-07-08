@@ -34,7 +34,7 @@ class ExitWhileEntryActiveTest extends TestCase
         $deal = Deal::query()->create([
             'market_id' => $market->id,
             'mode' => 'live',
-            'status' => 'entered',
+            'status' => 'opening',
             'entry_average_price' => '0.3923',
             'entry_amount' => '291386',
             'opened_at' => now(),
@@ -60,7 +60,7 @@ class ExitWhileEntryActiveTest extends TestCase
 
         $deal->refresh();
 
-        $this->assertSame('entered', $deal->status);
+        $this->assertSame('opening', $deal->status);
         $this->assertNull($deal->closed_at);
         $this->assertDatabaseMissing('orders', [
             'deal_id' => $deal->id,
