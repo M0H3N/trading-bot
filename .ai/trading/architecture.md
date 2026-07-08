@@ -6,40 +6,56 @@
 
 ```mermaid
 flowchart LR
-    A[EvaluateMarketJob] -->|buy limit| B[TradingOrder buy]
-    B --> C[MonitorOrderJob]
-    C -->|filled| D[Deal entered]
-    D --> E[ManageExitJob]
-    E -->|sell limit| F[TradingOrder sell]
-    E -->|monitorExitOrder| F
+    subgraph long [Long deal]
+        A1[EvaluateMarketJob] -->|buy limit| B1[MonitorOrderJob]
+        B1 --> C1[ManageExitJob]
+        C1 -->|sell limit| D1[closed]
+    end
+    subgraph short [Short deal]
+        A2[EvaluateMarketJob] -->|sell limit| B2[MonitorOrderJob]
+        B2 --> C2[ManageExitJob]
+        C2 -->|buy limit| D2[closed]
+    end
 ```
+
+## Deal direction
+
+| `direction` | Entry leg | Exit leg |
+|-------------|-----------|----------|
+| `long` (پیش‌فرض) | buy | sell |
+| `short` | sell | buy |
+
+فعال‌سازی per-market: `markets.long_enabled`, `markets.short_enabled`.
 
 ## مدل‌ها
 
 | مدل | جدول | نقش |
 |-----|------|-----|
-| `Market` | `markets` | نماد معاملاتی فعال |
+| `Market` | `markets` | نماد معاملاتی فعال + فلگ long/short |
 | `TradingOrder` | `orders` | اردر buy یا sell |
-| `Deal` | `deals` | چرخه عمر معامله (opening → entered → exiting → closed) |
+| `Deal` | `deals` | چرخه عمر معامله + `direction` |
 | `Trade` | `trades` | fill ثبت‌شده روی اردر |
 
 ## Scopes روی `TradingOrder`
 
 | Scope | فیلتر | کاربرد |
 |-------|--------|--------|
-| `entry()` | `side = buy` | ورود به معامله |
-| `exit()` | `side = sell` | خروج از معامله |
+| `entry()` | `side = buy` | side خام اکسچنج (legacy) |
+| `exit()` | `side = sell` | side خام اکسچنج (legacy) |
+| `entryLeg()` | buy برای long، sell برای short | dispatch `MonitorOrderJob` |
 | `active()` | `pending`, `open`, `partially_filled` | اردرهای باز |
-| `monitorable()` | active **یا** buy پر شده بدون trade | کاندید `MonitorOrderJob` (باید با `entry()` ترکیب شود) |
+| `monitorable()` | active **یا** entry-leg پر شده بدون trade | کاندید `MonitorOrderJob` (با `entryLeg()`) |
+
+در context یک deal از `Deal::entrySide()` / `exitSide()` استفاده کنید.
 
 ## سرویس‌ها
 
 | سرویس | مسئولیت |
 |--------|---------|
-| `MarketEvaluationService` | ارزیابی فرصت entry و ثبت buy |
-| `OrderMonitoringService` | polling وضعیت buy، cancel در صورت از بین رفتن فرصت |
-| `ExitManagementService` | مدیریت sell: repricing، stop-loss، `monitorExitOrder` |
-| `TradeRecorder` | ثبت fill و به‌روزرسانی deal |
+| `MarketEvaluationService` | ارزیابی فرصت entry (long و short) |
+| `OrderMonitoringService` | polling leg ورود، cancel در صورت از بین رفتن فرصت |
+| `ExitManagementService` | مدیریت leg خروج: repricing، stop-loss |
+| `TradeRecorder` | ثبت fill و PnL direction-aware |
 | `ExpireOpeningDealsService` | انقضای dealهای opening بدون fill |
 
 ## تنظیمات
@@ -56,4 +72,5 @@ app/Jobs/Trading/
 app/Console/Commands/DispatchTradingJobs.php
 routes/console.php
 app/Models/TradingOrder.php
+app/Models/Deal.php
 ```

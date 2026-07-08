@@ -23,6 +23,8 @@ class MarketForm
                 TextInput::make('last_price')->numeric()->default(0)->required(),
                 TextInput::make('min_order_amount')->numeric()->default(0)->required(),
                 Toggle::make('is_active')->label('Active'),
+                Toggle::make('long_enabled')->label('Long trading (buy → sell)')->default(true),
+                Toggle::make('short_enabled')->label('Short trading (sell → buy)')->default(false),
             ])->columns(2),
         ]);
     }

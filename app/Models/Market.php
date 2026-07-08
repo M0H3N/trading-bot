@@ -11,6 +11,11 @@ class Market extends Model
 {
     use HasFactory;
 
+    protected $attributes = [
+        'long_enabled' => true,
+        'short_enabled' => false,
+    ];
+
     protected $fillable = [
         'exchange',
         'symbol',
@@ -21,6 +26,8 @@ class Market extends Model
         'last_price',
         'min_order_amount',
         'is_active',
+        'long_enabled',
+        'short_enabled',
         'metadata',
     ];
 
@@ -28,6 +35,8 @@ class Market extends Model
     {
         return [
             'is_active' => 'boolean',
+            'long_enabled' => 'boolean',
+            'short_enabled' => 'boolean',
             'metadata' => 'array',
         ];
     }

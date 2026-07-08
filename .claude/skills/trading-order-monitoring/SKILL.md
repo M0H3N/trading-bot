@@ -1,40 +1,39 @@
 ---
 name: trading-order-monitoring
 description: >-
-  Guides changes to entry order monitoring (MonitorOrderJob, OrderMonitoringService)
-  and enforces buy-only scope vs ManageExitJob for sells. Use when working on
-  order monitoring, monitorable scope, DispatchTradingJobs monitor scope, or
-  buy/sell job separation.
+  Guides changes to entry-leg order monitoring (MonitorOrderJob, OrderMonitoringService)
+  vs ManageExitJob for exit legs. Use when working on order monitoring, monitorable scope,
+  DispatchTradingJobs monitor scope, or long/short deal separation.
 ---
 
 # Trading Order Monitoring
 
 ## When to use
 
-- Editing `MonitorOrderJob`, `OrderMonitoringService`, `scopeMonitorable`
-- Debugging why sell orders were cancelled incorrectly
+- Editing `MonitorOrderJob`, `OrderMonitoringService`, `scopeMonitorable`, `scopeEntryLeg`
+- Debugging incorrect cancel on entry or exit orders
 - Adding dispatch or polling for open orders
 
 ## Architecture
 
-| Path | Side | Responsibility |
-|------|------|----------------|
-| `MonitorOrderJob` → `OrderMonitoringService` | buy | Status poll, fill recording, cancel if entry opportunity gone |
-| `ManageExitJob` → `ExitManagementService` | sell | Repricing, stop-loss, `monitorExitOrder` |
+| Path | Leg | Responsibility |
+|------|-----|----------------|
+| `MonitorOrderJob` → `OrderMonitoringService` | entry (buy long / sell short) | Status poll, fill recording, cancel if entry opportunity gone |
+| `ManageExitJob` → `ExitManagementService` | exit (sell long / buy short) | Repricing, stop-loss, `monitorExitOrder` |
 
 ## Dispatch (current)
 
 ```php
-TradingOrder::query()->monitorable()->entry()->pluck('id')->each(
+TradingOrder::query()->monitorable()->entryLeg()->pluck('id')->each(
     fn (int $id) => MonitorOrderJob::dispatch($id)
 );
 ```
 
 ## Before merging
 
-1. Confirm no sell path uses `OrderMonitoringService`
-2. If changing `monitorable()`, verify dispatch still filters `entry()`
-3. Run `php artisan test --filter=ImmediateEntryFill` (PHP 8.3+)
+1. Confirm no exit-leg path uses `OrderMonitoringService`
+2. If changing `monitorable()`, verify dispatch still filters `entryLeg()`
+3. Run `php artisan test --filter=ImmediateEntryFill` and `--filter=ShortTrading` (PHP 8.3+)
 
 ## Reference
 

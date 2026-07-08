@@ -26,7 +26,7 @@ class CancelDealExitOrdersService
             }
 
             $deal->orders()
-                ->exit()
+                ->where('side', $deal->exitSide())
                 ->active()
                 ->each(fn (TradingOrder $order) => $this->cancelExitOrder($order));
 

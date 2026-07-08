@@ -9,10 +9,12 @@ Laravel trading bot for Wallex (paper + live). Domain logic lives under `app/Dom
 
 ## Trading loops
 
-1. **Entry (buy):** `EvaluateMarketJob` → `MarketEvaluationService` → `MonitorOrderJob` → `OrderMonitoringService`
-2. **Exit (sell):** `ManageExitJob` → `ExitManagementService` (includes `monitorExitOrder`)
+Deals have `direction`: **long** (buy → sell) or **short** (sell → buy). Per-market toggles: `long_enabled`, `short_enabled`.
 
-**Never route sell orders through `MonitorOrderJob`.** Entry and exit use different pricing logic.
+1. **Entry leg:** `EvaluateMarketJob` → `MarketEvaluationService` → `MonitorOrderJob` → `OrderMonitoringService`
+2. **Exit leg:** `ManageExitJob` → `ExitManagementService` (includes `monitorExitOrder`)
+
+**Never route exit-leg orders through `MonitorOrderJob`.** Use `Deal::entrySide()` / `exitSide()` in deal context; dispatch monitor with `monitorable()->entryLeg()`.
 
 ## AI docs
 
@@ -21,5 +23,5 @@ Detailed domain docs: [`.ai/README.md`](.ai/README.md)
 ## Conventions
 
 - Minimize scope; match existing service/job patterns
-- Use `TradingOrder::entry()` / `exit()` scopes for side filtering
+- `TradingOrder::entry()` / `exit()` = raw exchange side; `entryLeg()` = first deal leg
 - Run tests with PHP 8.3: `php artisan test --filter=Trading`

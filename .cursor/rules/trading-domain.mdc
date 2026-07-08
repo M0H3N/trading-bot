@@ -1,5 +1,5 @@
 ---
-description: Trading domain conventions — entry vs exit, jobs, scopes
+description: Trading domain conventions — entry vs exit legs, jobs, scopes
 globs: app/Domain/Trading/**,app/Jobs/Trading/**,app/Models/TradingOrder.php,app/Models/Deal.php,app/Console/Commands/DispatchTradingJobs.php
 alwaysApply: false
 ---
@@ -8,20 +8,22 @@ alwaysApply: false
 
 Read `.ai/trading/architecture.md` for the full pipeline.
 
-## Entry vs exit (mandatory)
+## Entry vs exit legs (mandatory)
 
-| Side | Job | Service |
-|------|-----|---------|
-| buy | `MonitorOrderJob` | `OrderMonitoringService` |
-| sell | `ManageExitJob` | `ExitManagementService` |
+Deal `direction`: `long` (buy→sell) | `short` (sell→buy).
 
-Do not apply entry logic (asks depth, `entry_threshold_percent`, `MarketEvaluationService`) to sell orders.
+| Leg | Job | Service |
+|-----|-----|---------|
+| entry | `MonitorOrderJob` | `OrderMonitoringService` |
+| exit | `ManageExitJob` | `ExitManagementService` |
+
+Do not apply entry logic to exit-leg orders. Use `Deal::entrySide()` / `exitSide()` in deal context.
 
 ## Scopes
 
-- `TradingOrder::entry()` → buy
-- `TradingOrder::exit()` → sell
-- `monitorable()` must be combined with `entry()` when dispatching `MonitorOrderJob`
+- `TradingOrder::entry()` / `exit()` → raw exchange side (legacy)
+- `TradingOrder::entryLeg()` → first deal leg (buy long, sell short)
+- `monitorable()` must be combined with `entryLeg()` when dispatching `MonitorOrderJob`
 
 ## Locks
 

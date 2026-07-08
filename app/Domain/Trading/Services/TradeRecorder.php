@@ -58,8 +58,11 @@ class TradeRecorder
         $deal->loadMissing('trades');
         $market = $deal->market;
 
-        $entries = $deal->trades->where('side', 'buy');
-        $exits = $deal->trades->where('side', 'sell');
+        $entrySide = $deal->entrySide();
+        $exitSide = $deal->exitSide();
+
+        $entries = $deal->trades->where('side', $entrySide);
+        $exits = $deal->trades->where('side', $exitSide);
 
         $entryAmount = (float) $entries->sum(fn (Trade $trade): float => (float) $trade->amount);
         $entryQuote = (float) $entries->sum(fn (Trade $trade): float => (float) $trade->quote_amount);
@@ -82,7 +85,9 @@ class TradeRecorder
 
         if ($deal->isClosed()) {
             if (in_array($deal->status, ['closed', 'stop_loss_closed'], true) && (($entryAmount - $exitAmount) * $entryAverage) <= $this->minDiffEntryExit($market->quote_asset)) {
-                $pnl = $exitQuote - $entryQuote - $feeInQuote;
+                $pnl = $deal->isShort()
+                    ? $entryQuote - $exitQuote - $feeInQuote
+                    : $exitQuote - $entryQuote - $feeInQuote;
                 $pnlPercent = $entryQuote > 0 ? ($pnl / $entryQuote) * 100 : 0;
             } else {
                 $unexitedAmount = $entryAmount - $exitAmount;

@@ -111,8 +111,8 @@ class ImmediateEntryFillTest extends TestCase
         ]);
 
         $this->assertTrue(
-            TradingOrder::query()->monitorable()->whereKey($order->id)->exists(),
-            'Filled entry orders without a buy trade should still be monitorable.',
+            TradingOrder::query()->monitorable()->entryLeg()->whereKey($order->id)->exists(),
+            'Filled entry-leg orders without a matching trade should still be monitorable.',
         );
     }
 

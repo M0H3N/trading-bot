@@ -1,69 +1,47 @@
-# Order Monitoring: Buy vs Sell
+# Order Monitoring: Entry Leg vs Exit Leg
 
 ## خلاصه
 
-`MonitorOrderJob` **فقط** اردرهای **buy (entry)** را مانیتور می‌کند.
+`MonitorOrderJob` **فقط** leg **ورود** deal را مانیتور می‌کند:
 
-اوردرهای **sell (exit)** توسط `ManageExitJob` → `ExitManagementService::monitorExitOrder()` مدیریت می‌شوند.
+| direction | entry leg (monitor) | exit leg (ManageExitJob) |
+|-----------|---------------------|---------------------------|
+| `long` | buy | sell |
+| `short` | sell | buy |
 
 ## چرا تفکیک لازم است؟
 
-`OrderMonitoringService` منطق entry دارد:
+`OrderMonitoringService` منطق **ورود** دارد (فرصت arbitrage، blocker، cancel و re-evaluate).
 
-- مقایسه عمق **asks** با fair price
-- `entry_threshold_percent` — آیا فرصت arbitrage هنوز هست؟
-- `blocker_threshold_tmn` — آیا اردر بزرگ‌تری جلوی fill ماست؟
-- در صورت cancel، `MarketEvaluationService::evaluate()` برای buy جدید
+leg **خروج** به `exit_percent`، `stop_loss_percent`، repricing وابسته است (`ExitManagementService`).
 
-این منطق برای sell معنا ندارد. sell به `exit_percent`، `stop_loss_percent`، و `topAsk` وابسته است (`ExitManagementService`).
-
-## باگ و فیکس (2026-06)
-
-### مشکل
-
-`scopeMonitorable()` همه اردرهای `active()` را برمی‌گرداند — **بدون فیلتر side**. در نتیجه اردر sell فعال هم به `MonitorOrderJob` می‌رفت و با منطق entry اشتباه cancel می‌شد، در حالی که `ManageExitJob` همان اردر را جداگانه مدیریت می‌کرد.
-
-### فیکس اعمال‌شده
-
-در `DispatchTradingJobs` فیلتر `->entry()` اضافه شد:
+## Dispatch
 
 ```php
-TradingOrder::query()->monitorable()->entry()->pluck('id')->each(
+TradingOrder::query()->monitorable()->entryLeg()->pluck('id')->each(
     fn (int $id) => MonitorOrderJob::dispatch($id)
 );
 ```
 
-### بهبود پیشنهادی (اختیاری)
-
-برای defense-in-depth، `scopeMonitorable()` را هم می‌توان به buy محدود کرد:
-
-```php
-return $query->entry()->where(function (Builder $query): void {
-    $query->active()
-        ->orWhere(function (Builder $query): void {
-            $query->where('status', 'filled')
-                ->whereDoesntHave('trades', fn ($t) => $t->where('side', 'buy'));
-        });
-});
-```
+`entryLeg()` = buy برای long، sell برای short (join با `deals.direction`).
 
 ## مسیر dispatch
 
-| Job | Query | سرویس | ساید |
-|-----|-------|--------|------|
-| `MonitorOrderJob` | `monitorable()->entry()` | `OrderMonitoringService` | buy |
-| `ManageExitJob` | `Deal::open()` | `ExitManagementService` | sell |
+| Job | Query | سرویس | Leg |
+|-----|-------|--------|-----|
+| `MonitorOrderJob` | `monitorable()->entryLeg()` | `OrderMonitoringService` | entry |
+| `ManageExitJob` | `Deal::open()` | `ExitManagementService` | exit |
+
+در سرویس‌ها از `Deal::entrySide()` / `exitSide()` استفاده کنید، نه hardcode buy/sell.
 
 ## `monitorable()` — دو حالت
 
 1. **Active orders** — polling وضعیت از صرافی
-2. **Filled buy بدون trade** — ثبت fill که از دست رفته (مثلاً immediate fill)
-
-> **نکته:** `OrderMonitoringService::monitor()` در خط ۲۹ برای `status = filled` زود return می‌کند. اگر حالت دوم باید کار کند، سرویس هم باید اصلاح شود. تست: `ImmediateEntryFillTest`.
+2. **Filled entry-leg بدون trade** — ثبت fill از دست‌رفته
 
 ## چک‌لیست قبل از تغییر
 
-- [ ] آیا تغییر روی buy است یا sell؟ مسیر job درست انتخاب شده؟
-- [ ] آیا `monitorable()` بدون `entry()` dispatch می‌شود؟
-- [ ] آیا منطق entry (asks، `entry_threshold_percent`) روی sell اعمال نشده؟
-- [ ] تست‌های `ImmediateEntryFillTest` و `PaperTradingFlowTest` اجرا شده؟
+- [ ] آیا تغییر روی entry leg است یا exit leg؟
+- [ ] آیا `monitorable()` بدون `entryLeg()` dispatch می‌شود؟
+- [ ] آیا منطق entry روی exit leg اعمال نشده؟
+- [ ] تست‌های `ImmediateEntryFillTest`، `ShortTradingFlowTest`، `PaperTradingFlowTest` اجرا شده؟

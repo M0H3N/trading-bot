@@ -42,7 +42,12 @@ class ExitManagementService
                 return;
             }
 
-            $activeExit = $deal->orders()->exit()->active()->latest()->first();
+            $activeExit = $deal->orders()
+                ->where('side', $deal->exitSide())
+                ->active()
+                ->latest()
+                ->first();
+
             if ($activeExit) {
                 $this->monitorExitOrder($activeExit);
 
@@ -104,7 +109,7 @@ class ExitManagementService
         $floorPercent = (float) $this->settings->decimal('exit_top_ask_from_percent');
         $currentPercent = (float) ($order->metadata['exit_percent'] ?? $this->settings->decimal('initial_exit_percent'));
         $nextPercent = max($floorPercent, $currentPercent - (float) $this->settings->decimal('exit_step_percent'));
-        $desiredPrice = (float) $deal->entry_average_price * (1 + ($nextPercent / 100));
+        $desiredPrice = $this->exitPriceFromPercent($deal, $nextPercent);
         $stopLoss = abs($desiredPrice - (float) $fair->price) / (float) $fair->price * 100 >= (float) $this->settings->decimal('stop_loss_percent');
 
         if ($stopLoss) {
@@ -115,7 +120,7 @@ class ExitManagementService
 
         $replacementPrice = number_format($desiredPrice, $market->tick_size, '.', '');
 
-        $this->withAssetLock($market, function () use ($client, $deal, $market, $order, $nextPercent, $replacementPrice): void {
+        $this->withAssetLock($market, $deal, function () use ($client, $deal, $market, $order, $nextPercent, $replacementPrice): void {
             $prepared = $this->prepareExitAmount($deal, $market, $deal->remainingAmount(), $replacementPrice, allowInsufficientMark: false);
 
             if ($prepared === null) {
@@ -132,9 +137,9 @@ class ExitManagementService
     protected function placeExitOrder(Deal $deal, float $amount, float $exitPercent, ?string $forcedPrice = null): ?TradingOrder
     {
         $market = $deal->market()->firstOrFail();
-        $price = $forcedPrice ?? number_format((float) $deal->entry_average_price * (1 + ($exitPercent / 100)), $market->tick_size, '.', '');
+        $price = $forcedPrice ?? $this->formatExitPrice($deal, $market, $exitPercent);
 
-        return $this->withAssetLock($market, function () use ($deal, $market, $amount, $exitPercent, $price): ?TradingOrder {
+        return $this->withAssetLock($market, $deal, function () use ($deal, $market, $amount, $exitPercent, $price): ?TradingOrder {
             $prepared = $this->prepareExitAmount($deal, $market, $amount, $price);
 
             if ($prepared === null) {
@@ -160,8 +165,15 @@ class ExitManagementService
 
         if ($deal->mode === 'live') {
             $client = $this->exchanges->client($market->exchange, $deal->mode);
-            $available = (float) $client->getBalance($market->base_asset)->available;
-            $amount = min($amount, $available);
+
+            if ($deal->isShort()) {
+                $available = (float) $client->getBalance($market->quote_asset)->available;
+                $maxAffordable = (float) $price > 0 ? $available / (float) $price : 0.0;
+                $amount = min($amount, $maxAffordable);
+            } else {
+                $available = (float) $client->getBalance($market->base_asset)->available;
+                $amount = min($amount, $available);
+            }
         }
 
         $formattedAmount = $this->floorAmount($amount, $market->step_size);
@@ -175,17 +187,25 @@ class ExitManagementService
                 return null;
             }
 
-            if ($requestedAmount > (float) $available) {
+            if ($deal->isShort()) {
+                $requiredQuote = (float) $price * (float) $formattedAmount;
+
+                if ($requiredQuote > (float) $available) {
+                    if ($allowInsufficientMark) {
+                        $this->markInsufficientBalance($deal, $market, $requiredQuote, (float) $available, 'quote');
+                    }
+
+                    return null;
+                }
+            } elseif ($requestedAmount > (float) $available) {
                 if ($allowInsufficientMark) {
-                    $this->markInsufficientBalance($deal, $market, $requestedAmount, (float) $available);
+                    $this->markInsufficientBalance($deal, $market, $requestedAmount, (float) $available, 'base');
                 }
 
                 return null;
-            }
-
-            if ((float) $formattedAmount > (float) $available) {
+            } elseif ((float) $formattedAmount > (float) $available) {
                 if ($allowInsufficientMark) {
-                    $this->markInsufficientBalance($deal, $market, (float) $formattedAmount, (float) $available);
+                    $this->markInsufficientBalance($deal, $market, (float) $formattedAmount, (float) $available, 'base');
                 }
 
                 return null;
@@ -205,12 +225,13 @@ class ExitManagementService
     {
         $client = $this->exchanges->client($market->exchange, $deal->mode);
         $formattedAmount = $prepared['amount'];
-        $clientId = 'Deal-'.$deal->id.'-'.$this->clientIds->make($market, 'sell');
+        $exitSide = $deal->exitSide();
+        $clientId = 'Deal-'.$deal->id.'-'.$this->clientIds->make($market, $exitSide);
 
         try {
             $placed = $client->placeOrder(new PlaceOrderData(
                 symbol: $market->symbol,
-                side: 'sell',
+                side: $exitSide,
                 type: 'limit',
                 price: $price,
                 amount: $formattedAmount,
@@ -220,7 +241,9 @@ class ExitManagementService
         } catch (RequestException $exception) {
             if ($exception->response?->status() === 422 && $this->isInsufficientBalanceResponse($exception->response->json())) {
                 $available = $deal->mode === 'live'
-                    ? (float) $client->getBalance($market->base_asset)->available
+                    ? ($deal->isShort()
+                        ? (float) $client->getBalance($market->quote_asset)->available
+                        : (float) $client->getBalance($market->base_asset)->available)
                     : $prepared['available'];
 
                 Log::warning('Exit placeOrder rejected with insufficient balance (422).', [
@@ -230,8 +253,12 @@ class ExitManagementService
                     'available_balance' => $available,
                 ]);
 
-                if ($deal->mode === 'live' && (float) $formattedAmount > $available) {
-                    $this->markInsufficientBalance($deal, $market, (float) $formattedAmount, $available);
+                if ($deal->mode === 'live') {
+                    if ($deal->isShort() && (float) $price * (float) $formattedAmount > $available) {
+                        $this->markInsufficientBalance($deal, $market, (float) $price * (float) $formattedAmount, $available, 'quote');
+                    } elseif (! $deal->isShort() && (float) $formattedAmount > $available) {
+                        $this->markInsufficientBalance($deal, $market, (float) $formattedAmount, $available, 'base');
+                    }
                 }
 
                 return null;
@@ -250,7 +277,7 @@ class ExitManagementService
             'client_id' => $clientId,
             'external_id' => $placed->externalId,
             'mode' => $deal->mode,
-            'side' => 'sell',
+            'side' => $exitSide,
             'type' => 'limit',
             'status' => $placed->status,
             'price' => $price,
@@ -262,7 +289,7 @@ class ExitManagementService
             'metadata' => array_merge($placed->raw, ['exit_percent' => $exitPercent]),
         ]);
 
-        if ($placed->status === 'filled' && ! $order->trades()->where('side', 'sell')->exists()) {
+        if ($placed->status === 'filled' && ! $order->trades()->where('side', $exitSide)->exists()) {
             $averagePrice = EntryOrderPayload::averagePrice($placed->raw);
             $filledAmount = EntryOrderPayload::filledAmount($placed->raw);
 
@@ -279,11 +306,26 @@ class ExitManagementService
         return $order;
     }
 
-    protected function withAssetLock(Market $market, callable $callback): mixed
+    protected function withAssetLock(Market $market, Deal $deal, callable $callback): mixed
     {
-        $key = "trading:asset:{$market->exchange}:{$market->base_asset}";
+        $asset = $deal->isShort() ? $market->quote_asset : $market->base_asset;
+        $key = "trading:asset:{$market->exchange}:{$asset}";
 
         return Cache::lock($key, (int) config('trading.lock_ttl'))->block(5, $callback);
+    }
+
+    protected function formatExitPrice(Deal $deal, Market $market, float $exitPercent): string
+    {
+        return number_format($this->exitPriceFromPercent($deal, $exitPercent), $market->tick_size, '.', '');
+    }
+
+    protected function exitPriceFromPercent(Deal $deal, float $exitPercent): float
+    {
+        $multiplier = $deal->isShort()
+            ? (1 - ($exitPercent / 100))
+            : (1 + ($exitPercent / 100));
+
+        return (float) $deal->entry_average_price * $multiplier;
     }
 
     /**
@@ -300,7 +342,7 @@ class ExitManagementService
         return in_array(1006, array_map(intval(...), $errorCodes), true);
     }
 
-    protected function markInsufficientBalance(Deal $deal, Market $market, float $requestedAmount, float $available): void
+    protected function markInsufficientBalance(Deal $deal, Market $market, float $requestedAmount, float $available, string $assetType = 'base'): void
     {
         if ($deal->status === 'insufficient_balance') {
             return;
@@ -309,6 +351,7 @@ class ExitManagementService
         Log::warning('Deal marked insufficient_balance: exit amount exceeds wallet balance.', [
             'deal_id' => $deal->id,
             'symbol' => $market->symbol,
+            'asset_type' => $assetType,
             'requested_amount' => $requestedAmount,
             'available_balance' => $available,
         ]);
@@ -317,6 +360,7 @@ class ExitManagementService
             'status' => 'insufficient_balance',
             'metadata' => array_merge($deal->metadata ?? [], [
                 'insufficient_balance' => [
+                    'asset_type' => $assetType,
                     'requested_amount' => number_format($requestedAmount, 12, '.', ''),
                     'available_balance' => number_format($available, 12, '.', ''),
                     'recorded_at' => now()->toIso8601String(),

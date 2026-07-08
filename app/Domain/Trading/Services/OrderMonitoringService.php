@@ -2,11 +2,9 @@
 
 namespace App\Domain\Trading\Services;
 
-use App\Domain\Exchange\DTO\PlacedOrderData;
 use App\Domain\Exchange\ExchangeManager;
 use App\Models\TradingOrder;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Log;
 
 class OrderMonitoringService
 {
@@ -21,16 +19,16 @@ class OrderMonitoringService
 
     public function monitor(TradingOrder $order): void
     {
-
-
         Cache::lock("trading:order:{$order->id}", (int) config('trading.lock_ttl'))->block(5, function () use ($order): void {
-
             $order->refresh();
 
-            if (! in_array($order->status, ['pending', 'open', 'partially_filled'], true)) {
+            $isActive = in_array($order->status, ['pending', 'open', 'partially_filled'], true);
+            $needsFillRecovery = $order->status === 'filled'
+                && ! $order->trades()->where('side', $order->side)->exists();
+
+            if (! $isActive && ! $needsFillRecovery) {
                 return;
             }
-
 
             $client = $this->exchanges->client($order->exchange, $order->mode);
             $status = $client->getOrderStatus($order->client_id);
@@ -38,9 +36,9 @@ class OrderMonitoringService
             $averagePrice = $status->averagePrice ?? EntryOrderPayload::averagePrice($status->raw);
             $filledAmount = EntryOrderPayload::filledAmount($status->raw);
 
-            if ($averagePrice !== null && $filledAmount !== null)
+            if ($averagePrice !== null && $filledAmount !== null) {
                 $this->tradeRecorder->recordFilledOrder($order, $averagePrice, $filledAmount, $status->raw);
-
+            }
 
             $order->forceFill([
                 'status' => $status->status,
@@ -49,10 +47,12 @@ class OrderMonitoringService
                 'metadata' => array_merge($order->metadata ?? [], ['last_status' => $status->raw]),
             ])->save();
 
-            if($status->isFilled())
+            if (! $isActive || $status->isFilled()) {
                 return;
+            }
 
             $market = $order->market()->firstOrFail();
+            $deal = $order->deal()->firstOrFail();
             $book = $client->getOrderBook($order->symbol);
             $fair = $client->getFairPrice($order->symbol);
             $depthUsd = $this->settings->decimal('depth_usd');
@@ -65,15 +65,27 @@ class OrderMonitoringService
                     depthInBaseAsset: true,
                 )
                 : null;
-            $averageWallex = $this->pricing->averagePriceOfDepth($book, 'asks', $depthUsd, $market->quote_asset, $usdtTmnPrice);
+
+            if ($deal->isShort()) {
+                $averageWallex = $this->pricing->averagePriceOfDepth($book, 'bids', $depthUsd, $market->quote_asset, $usdtTmnPrice);
+                $blocked = $this->pricing->hasAnyOrderBelow(
+                    $book,
+                    (string) $order->price,
+                    $market->quote_asset,
+                    $this->settings->blockerThreshold($market->quote_asset),
+                );
+            } else {
+                $averageWallex = $this->pricing->averagePriceOfDepth($book, 'asks', $depthUsd, $market->quote_asset, $usdtTmnPrice);
+                $blocked = $this->pricing->hasAnyOrderAbove(
+                    $book,
+                    (string) $order->price,
+                    $market->quote_asset,
+                    $this->settings->blockerThreshold($market->quote_asset),
+                );
+            }
+
             $diff = $this->pricing->percentDifference($averageWallex, $fair->price);
             $opportunityGone = (float) $diff < (float) $this->settings->decimal('entry_threshold_percent');
-            $blocked = $this->pricing->hasAnyOrderAbove(
-                $book,
-                (string) $order->price,
-                $market->quote_asset,
-                $this->settings->blockerThreshold($market->quote_asset),
-            );
 
             if (! $opportunityGone && ! $blocked) {
                 return;

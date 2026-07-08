@@ -48,17 +48,36 @@ class TradingOrder extends Model
     }
 
     /**
-     * Orders that still need status polling, or entry buys marked filled before a trade was recorded.
+     * Orders that still need status polling, or entry-leg orders marked filled before a trade was recorded.
      */
     public function scopeMonitorable(Builder $query): Builder
     {
         return $query->where(function (Builder $query): void {
             $query->active()
                 ->orWhere(function (Builder $query): void {
-                    $query->entry()
+                    $query->entryLeg()
                         ->where('status', 'filled')
-                        ->whereDoesntHave('trades', fn (Builder $trades): Builder => $trades->where('side', 'buy'));
+                        ->whereDoesntHave(
+                            'trades',
+                            fn (Builder $trades): Builder => $trades->whereColumn('trades.side', 'orders.side'),
+                        );
                 });
+        });
+    }
+
+    /**
+     * First leg of a deal: buy for long, sell for short.
+     */
+    public function scopeEntryLeg(Builder $query): Builder
+    {
+        return $query->where(function (Builder $query): void {
+            $query->where(function (Builder $long): void {
+                $long->where('side', 'buy')
+                    ->whereHas('deal', fn (Builder $deal): Builder => $deal->where('direction', Deal::DIRECTION_LONG));
+            })->orWhere(function (Builder $short): void {
+                $short->where('side', 'sell')
+                    ->whereHas('deal', fn (Builder $deal): Builder => $deal->where('direction', Deal::DIRECTION_SHORT));
+            });
         });
     }
 

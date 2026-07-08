@@ -12,11 +12,20 @@ class Deal extends Model
 {
     use HasFactory;
 
+    protected $attributes = [
+        'direction' => 'long',
+    ];
+
     public const CLOSED_STATUSES = ['closed', 'stop_loss_closed', 'manually_closed', 'insufficient_balance'];
+
+    public const DIRECTION_LONG = 'long';
+
+    public const DIRECTION_SHORT = 'short';
 
     protected $fillable = [
         'market_id',
         'mode',
+        'direction',
         'status',
         'entry_average_price',
         'entry_amount',
@@ -46,6 +55,16 @@ class Deal extends Model
         return $query->whereIn('status', ['opening', 'entered', 'exiting', 'stop_loss']);
     }
 
+    public function scopeLong(Builder $query): Builder
+    {
+        return $query->where('direction', self::DIRECTION_LONG);
+    }
+
+    public function scopeShort(Builder $query): Builder
+    {
+        return $query->where('direction', self::DIRECTION_SHORT);
+    }
+
     public function scopeClose(Builder $query): Builder
     {
         return $query->whereIn('status', self::CLOSED_STATUSES);
@@ -71,9 +90,32 @@ class Deal extends Model
         return $this->hasMany(Trade::class);
     }
 
+    public function isLong(): bool
+    {
+        return $this->direction === self::DIRECTION_LONG;
+    }
+
+    public function isShort(): bool
+    {
+        return $this->direction === self::DIRECTION_SHORT;
+    }
+
+    public function entrySide(): string
+    {
+        return $this->isShort() ? 'sell' : 'buy';
+    }
+
+    public function exitSide(): string
+    {
+        return $this->isShort() ? 'buy' : 'sell';
+    }
+
     public function hasActiveEntryOrder(): bool
     {
-        return $this->orders()->entry()->active()->exists();
+        return $this->orders()
+            ->where('side', $this->entrySide())
+            ->active()
+            ->exists();
     }
 
     public function remainingAmount(): float
@@ -83,17 +125,21 @@ class Deal extends Model
 
         $entryAmount = bcadd(number_format((float) $this->entry_amount, $scale, '.', ''), '0', $scale);
         $exitAmount = bcadd(number_format((float) $this->exit_amount, $scale, '.', ''), '0', $scale);
-        $buyFees = bcadd(number_format((float) $this->trades()->where('side', 'buy')->sum('fee'), $scale, '.', ''), '0', $scale);
+        $entryFees = bcadd(
+            number_format((float) $this->trades()->where('side', $this->entrySide())->sum('fee'), $scale, '.', ''),
+            '0',
+            $scale,
+        );
 
         $oneStep = $precision > 0
             ? bcdiv('1', bcpow('10', (string) $precision, 0), $scale)
             : '1';
 
-        if (bccomp($buyFees, $oneStep, $scale) < 0) {
-            $buyFees = '0';
+        if (bccomp($entryFees, $oneStep, $scale) < 0) {
+            $entryFees = '0';
         }
 
-        $remaining = bcsub(bcsub($entryAmount, $buyFees, $scale), $exitAmount, $scale);
+        $remaining = bcsub(bcsub($entryAmount, $entryFees, $scale), $exitAmount, $scale);
 
         return max(0.0, (float) $remaining);
     }

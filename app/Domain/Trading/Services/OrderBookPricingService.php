@@ -103,4 +103,15 @@ class OrderBookPricingService
 
         return false;
     }
+
+    public function hasAnyOrderBelow(OrderBook $book, string $ourPrice, string $quoteAsset, string $threshold): bool
+    {
+        foreach ($book->asks as $level) {
+            if ((float) $level->price < (float) $ourPrice && $level->notional() >= (float) $threshold) {
+                return true;
+            }
+        }
+
+        return false;
+    }
 }

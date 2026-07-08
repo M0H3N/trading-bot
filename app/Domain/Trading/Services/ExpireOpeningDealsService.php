@@ -40,9 +40,9 @@ class ExpireOpeningDealsService
 
             if (! $this->settings->marketEvaluationEnabled()) {
                 $deal->orders()
-                    ->entry()
+                    ->where('side', $deal->entrySide())
                     ->active()
-                    ->each(fn (TradingOrder $order) => $this->cancelBuyOrder($order));
+                    ->each(fn (TradingOrder $order) => $this->cancelEntryOrder($order));
 
                 $deal->refresh();
             }
@@ -60,29 +60,31 @@ class ExpireOpeningDealsService
 
     protected function hasBlockingEntryOrders(Deal $deal): bool
     {
-        if ($deal->trades()->where('side', 'buy')->exists()) {
+        $entrySide = $deal->entrySide();
+
+        if ($deal->trades()->where('side', $entrySide)->exists()) {
             return true;
         }
 
-        if ($deal->orders()->entry()->active()->exists()) {
+        if ($deal->orders()->where('side', $entrySide)->active()->exists()) {
             return true;
         }
 
         return $deal->orders()
-            ->entry()
+            ->where('side', $entrySide)
             ->where('status', 'filled')
-            ->whereDoesntHave('trades', fn ($trades) => $trades->where('side', 'buy'))
+            ->whereDoesntHave('trades', fn ($trades) => $trades->where('side', $entrySide))
             ->exists();
     }
 
-    protected function cancelBuyOrder(TradingOrder $order): void
+    protected function cancelEntryOrder(TradingOrder $order): void
     {
         $client = $this->exchanges->client($order->exchange, $order->mode);
 
         try {
             $client->cancelOrder($order->client_id);
         } catch (Throwable $exception) {
-            Log::warning('Failed to cancel buy order while expiring opening deal.', [
+            Log::warning('Failed to cancel entry order while expiring opening deal.', [
                 'order_id' => $order->id,
                 'client_id' => $order->client_id,
                 'error' => $exception->getMessage(),
@@ -98,7 +100,7 @@ class ExpireOpeningDealsService
                 'last_checked_at' => now(),
             ])->save();
         } catch (Throwable $exception) {
-            Log::warning('Failed to refresh buy order status while expiring opening deal.', [
+            Log::warning('Failed to refresh entry order status while expiring opening deal.', [
                 'order_id' => $order->id,
                 'client_id' => $order->client_id,
                 'error' => $exception->getMessage(),

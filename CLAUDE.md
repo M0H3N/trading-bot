@@ -2,11 +2,13 @@
 
 @.ai/README.md
 
-## Critical rule: buy vs sell monitoring
+## Critical rule: entry leg vs exit leg monitoring
 
-- `MonitorOrderJob` + `OrderMonitoringService` → **buy only**
-- `ManageExitJob` + `ExitManagementService` → **sell only**
-- Dispatch uses `monitorable()->entry()` — see `.ai/trading/order-monitoring.md`
+- `MonitorOrderJob` + `OrderMonitoringService` → **entry leg only** (buy for long, sell for short)
+- `ManageExitJob` + `ExitManagementService` → **exit leg** (sell for long, buy for short)
+- Dispatch uses `monitorable()->entryLeg()` — see `.ai/trading/order-monitoring.md`
+
+Deal `direction`: `long` (buy→sell) | `short` (sell→buy). Per-market: `long_enabled`, `short_enabled`.
 
 ## Key paths
 
@@ -20,6 +22,7 @@
 ```bash
 php artisan test --filter=ImmediateEntryFill
 php artisan test --filter=PaperTradingFlow
+php artisan test --filter=ShortTrading
 php artisan test --filter=TradingServiceToggles
 ```
 
