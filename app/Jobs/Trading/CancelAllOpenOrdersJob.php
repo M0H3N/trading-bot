@@ -3,6 +3,7 @@
 namespace App\Jobs\Trading;
 
 use App\Domain\Trading\Services\CancelOpenOrderService;
+use App\Domain\Trading\Services\TradingQueueService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -25,7 +26,7 @@ class CancelAllOpenOrdersJob implements ShouldQueue
 
     public function __construct()
     {
-        $this->onQueue((string) config('trading.queue'));
+        $this->onQueue(TradingQueueService::maintenance());
     }
 
     public function handle(CancelOpenOrderService $service): void

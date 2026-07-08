@@ -3,6 +3,7 @@
 namespace App\Jobs\Trading;
 
 use App\Domain\Trading\Services\ExpireOpeningDealsService;
+use App\Domain\Trading\Services\TradingQueueService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -25,7 +26,7 @@ class ExpireOpeningDealsJob implements ShouldQueue
 
     public function __construct()
     {
-        $this->onQueue((string) config('trading.queue'));
+        $this->onQueue(TradingQueueService::maintenance());
     }
 
     public function handle(ExpireOpeningDealsService $service): void

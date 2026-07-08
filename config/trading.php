@@ -3,7 +3,14 @@
 return [
     'mode' => env('TRADING_MODE', 'paper'),
     'default_exchange' => env('TRADING_DEFAULT_EXCHANGE', 'wallex'),
-    'queue' => env('TRADING_QUEUE', 'default'),
+    /** @deprecated Use trading.queues.* instead. */
+    'queue' => env('TRADING_QUEUE', 'trading'),
+    'queues' => [
+        'evaluate' => env('TRADING_QUEUE_EVALUATE', 'trading-evaluate'),
+        'monitor' => env('TRADING_QUEUE_MONITOR', 'trading-monitor'),
+        'exit' => env('TRADING_QUEUE_EXIT', 'trading-exit'),
+        'maintenance' => env('TRADING_QUEUE_MAINTENANCE', 'trading-maintenance'),
+    ],
     'lock_ttl' => (int) env('TRADING_LOCK_TTL', 30),
     'monitor_interval' => (int) env('TRADING_MONITOR_INTERVAL', 5),
     'exit_interval' => (int) env('TRADING_EXIT_INTERVAL', 30),

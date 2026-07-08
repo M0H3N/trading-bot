@@ -3,6 +3,7 @@
 namespace App\Jobs\Trading;
 
 use App\Domain\Trading\Services\MarketEvaluationService;
+use App\Domain\Trading\Services\TradingQueueService;
 use App\Models\Market;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -25,7 +26,7 @@ class EvaluateMarketJob implements ShouldQueue
 
     public function __construct(public readonly int $marketId)
     {
-        $this->onQueue((string) config('trading.queue'));
+        $this->onQueue(TradingQueueService::evaluate());
     }
 
     public function handle(MarketEvaluationService $service): void

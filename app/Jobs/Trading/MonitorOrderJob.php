@@ -3,6 +3,7 @@
 namespace App\Jobs\Trading;
 
 use App\Domain\Trading\Services\OrderMonitoringService;
+use App\Domain\Trading\Services\TradingQueueService;
 use App\Models\TradingOrder;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -25,7 +26,7 @@ class MonitorOrderJob implements ShouldQueue
 
     public function __construct(public readonly int $orderId)
     {
-        $this->onQueue((string) config('trading.queue'));
+        $this->onQueue(TradingQueueService::monitor());
     }
 
     public function handle(OrderMonitoringService $service): void
