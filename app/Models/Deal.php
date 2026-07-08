@@ -120,16 +120,22 @@ class Deal extends Model
 
     public function remainingAmount(): float
     {
-        $precision = (int) $this->market()->value('step_size');
+        $market = $this->market()->first(['step_size', 'base_asset']);
+        $precision = (int) $market->step_size;
         $scale = max($precision + 4, 12);
+        $baseAsset = strtoupper($market->base_asset);
 
         $entryAmount = bcadd(number_format((float) $this->entry_amount, $scale, '.', ''), '0', $scale);
         $exitAmount = bcadd(number_format((float) $this->exit_amount, $scale, '.', ''), '0', $scale);
-        $entryFees = bcadd(
-            number_format((float) $this->trades()->where('side', $this->entrySide())->sum('fee'), $scale, '.', ''),
-            '0',
-            $scale,
-        );
+        $entryFees = '0';
+
+        foreach ($this->trades()->where('side', $this->entrySide())->get(['fee', 'fee_asset']) as $trade) {
+            if (strtoupper((string) $trade->fee_asset) !== $baseAsset) {
+                continue;
+            }
+
+            $entryFees = bcadd($entryFees, number_format((float) $trade->fee, $scale, '.', ''), $scale);
+        }
 
         $oneStep = $precision > 0
             ? bcdiv('1', bcpow('10', (string) $precision, 0), $scale)

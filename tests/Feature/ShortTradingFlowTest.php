@@ -8,6 +8,7 @@ use App\Domain\Trading\Services\OrderMonitoringService;
 use App\Domain\Trading\Services\TradingSettingsService;
 use App\Models\Deal;
 use App\Models\Market;
+use App\Models\Trade;
 use App\Models\TradingOrder;
 use App\Models\TradingSetting;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -147,6 +148,76 @@ class ShortTradingFlowTest extends TestCase
             'deal_id' => $deal->id,
             'side' => 'buy',
             'price' => '1001997000',
+        ]);
+    }
+
+    public function test_short_exit_management_does_not_close_deal_when_entry_fee_is_in_quote_asset(): void
+    {
+        app(TradingSettingsService::class)->syncDefaults();
+        $this->setting('exit_management_enabled', '1');
+        $this->setting('initial_exit_percent', '0.10');
+
+        $market = Market::query()->create([
+            'exchange' => 'wallex',
+            'symbol' => 'TRXTMN',
+            'base_asset' => 'TRX',
+            'quote_asset' => 'TMN',
+            'tick_size' => '1',
+            'step_size' => '1',
+            'last_price' => '59679',
+            'is_active' => true,
+            'long_enabled' => false,
+            'short_enabled' => true,
+        ]);
+
+        $deal = Deal::query()->create([
+            'market_id' => $market->id,
+            'mode' => 'paper',
+            'direction' => 'short',
+            'status' => 'entered',
+            'entry_average_price' => '59679',
+            'entry_amount' => '5.2',
+            'opened_at' => now(),
+        ]);
+
+        $order = TradingOrder::query()->create([
+            'market_id' => $market->id,
+            'deal_id' => $deal->id,
+            'exchange' => 'wallex',
+            'symbol' => 'TRXTMN',
+            'client_id' => 'short-trx-entry-fee-test',
+            'mode' => 'paper',
+            'side' => 'sell',
+            'type' => 'limit',
+            'status' => 'filled',
+            'price' => '59679',
+            'amount' => '5.2',
+            'quote_amount' => '310330.8',
+        ]);
+
+        Trade::query()->create([
+            'market_id' => $market->id,
+            'deal_id' => $deal->id,
+            'order_id' => $order->id,
+            'mode' => 'paper',
+            'side' => 'sell',
+            'price' => '59679',
+            'amount' => '5.2',
+            'quote_amount' => '310330.8',
+            'fee' => '15.516540',
+            'fee_asset' => 'TMN',
+            'filled_at' => now(),
+        ]);
+
+        app(ExitManagementService::class)->manage($deal);
+
+        $deal->refresh();
+
+        $this->assertSame('exiting', $deal->status);
+        $this->assertNull($deal->closed_at);
+        $this->assertDatabaseHas('orders', [
+            'deal_id' => $deal->id,
+            'side' => 'buy',
         ]);
     }
 

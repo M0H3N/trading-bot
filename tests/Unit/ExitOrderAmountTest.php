@@ -68,6 +68,29 @@ class ExitOrderAmountTest extends TestCase
         $this->assertSame('2826324', $this->floorAmount(2826324.6767, 0));
     }
 
+    public function test_remaining_amount_ignores_sell_fee_in_quote_asset_for_short_deal(): void
+    {
+        $market = $this->trxMarket();
+        $deal = $this->enteredShortDeal($market, entryAmount: '5.2');
+        $order = $this->sellOrder($market, $deal);
+
+        Trade::query()->create([
+            'market_id' => $market->id,
+            'deal_id' => $deal->id,
+            'order_id' => $order->id,
+            'mode' => 'live',
+            'side' => 'sell',
+            'price' => '59679',
+            'amount' => '5.2',
+            'quote_amount' => '310330.8',
+            'fee' => '15.516540',
+            'fee_asset' => 'TMN',
+            'filled_at' => now(),
+        ]);
+
+        $this->assertSame(5.2, $deal->fresh()->remainingAmount());
+    }
+
     public function test_exit_amount_for_btc_uses_full_entry_when_buy_fee_is_below_step(): void
     {
         $market = $this->btcMarket(stepSize: '6');
@@ -155,6 +178,52 @@ class ExitOrderAmountTest extends TestCase
             'price' => '1',
             'amount' => $deal->entry_amount,
             'quote_amount' => '1',
+        ]);
+    }
+
+    private function trxMarket(): Market
+    {
+        return Market::query()->create([
+            'exchange' => 'wallex',
+            'symbol' => 'TRXTMN',
+            'base_asset' => 'TRX',
+            'quote_asset' => 'TMN',
+            'tick_size' => '1',
+            'step_size' => '1',
+            'is_active' => true,
+        ]);
+    }
+
+    private function enteredShortDeal(Market $market, string $entryAmount): Deal
+    {
+        return Deal::query()->create([
+            'market_id' => $market->id,
+            'mode' => 'live',
+            'direction' => 'short',
+            'status' => 'entered',
+            'entry_average_price' => '59679',
+            'entry_amount' => $entryAmount,
+            'exit_average_price' => '0',
+            'exit_amount' => '0',
+            'opened_at' => now(),
+        ]);
+    }
+
+    private function sellOrder(Market $market, Deal $deal): TradingOrder
+    {
+        return TradingOrder::query()->create([
+            'market_id' => $market->id,
+            'deal_id' => $deal->id,
+            'exchange' => 'wallex',
+            'symbol' => $market->symbol,
+            'client_id' => 'test-sell-'.$deal->id,
+            'mode' => 'live',
+            'side' => 'sell',
+            'type' => 'limit',
+            'status' => 'filled',
+            'price' => '59679',
+            'amount' => $deal->entry_amount,
+            'quote_amount' => '310330.8',
         ]);
     }
 }
