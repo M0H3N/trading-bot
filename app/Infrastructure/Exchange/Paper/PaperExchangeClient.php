@@ -72,9 +72,13 @@ class PaperExchangeClient implements ExchangeClient
 
     public function getBalance(string $asset): BalanceData
     {
+        $available = in_array($asset, ['TMN', 'USDT'], true)
+            ? (string) config('trading.paper.default_quote_balance')
+            : (string) config('trading.paper.default_base_balance');
+
         return new BalanceData(
             asset: $asset,
-            available: (string) config('trading.paper.default_quote_balance'),
+            available: $available,
             locked: '0',
             raw: ['paper' => true],
         );

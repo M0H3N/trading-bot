@@ -31,6 +31,7 @@ return [
 
     'paper' => [
         'default_quote_balance' => env('TRADING_PAPER_QUOTE_BALANCE', '1000000000'),
+        'default_base_balance' => env('TRADING_PAPER_BASE_BALANCE', '1'),
     ],
 
     'http_logging' => [

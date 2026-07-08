@@ -32,6 +32,7 @@ class PaperTradingFlowTest extends TestCase
             'quote_asset' => 'TMN',
             'tick_size' => '1',
             'step_size' => '1',
+            'last_price' => '1000000000',
             'is_active' => true,
         ]);
 
@@ -64,6 +65,7 @@ class PaperTradingFlowTest extends TestCase
             'quote_asset' => 'TMN',
             'tick_size' => '1',
             'step_size' => '1',
+            'last_price' => '1000000000',
             'is_active' => true,
         ]);
 

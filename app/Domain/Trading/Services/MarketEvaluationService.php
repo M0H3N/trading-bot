@@ -62,10 +62,9 @@ class MarketEvaluationService
             }
 
             $orderPrice = (float) $topBid->price + $market->minPriceIncrement();
-            $balance = $client->getBalance($market->quote_asset);
-
-
-            $budget = ((float) $balance->available) * ((float) $this->settings->decimal('trade_balance_percent') / 100);
+            $balance = $client->getBalance($market->base_asset);
+            $quoteValue = (float) $balance->available * (float) $market->last_price;
+            $budget = $quoteValue * ((float) $this->settings->decimal('trade_balance_percent') / 100);
             $amount = $orderPrice > 0 ? $budget / $orderPrice : 0;
 
             if ($amount <= 0) {
