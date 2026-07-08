@@ -75,6 +75,8 @@ class TradeRecorder
 
         $feeInQuote = (float) $deal->trades->sum(fn (Trade $trade): float => $this->feeInQuote($trade));
 
+
+
         $entryAmount = number_format($entryAmount, 12, '.', '');
         $exitAmount = number_format($exitAmount, 12, '.', '');
 
@@ -85,9 +87,14 @@ class TradeRecorder
 
         if ($deal->isClosed()) {
             if (in_array($deal->status, ['closed', 'stop_loss_closed'], true) && (($entryAmount - $exitAmount) * $entryAverage) <= $this->minDiffEntryExit($market->quote_asset)) {
+
+                $dustAmount = abs($entryAmount - $exitAmount);
+                $dustPrice = $exitAverage > 0 ? $exitAverage : $entryAverage;
+                $dustInQuote = $dustAmount * $dustPrice;
+
                 $pnl = $deal->isShort()
-                    ? $entryQuote - $exitQuote - $feeInQuote
-                    : $exitQuote - $entryQuote - $feeInQuote;
+                    ? $entryQuote - $exitQuote - $feeInQuote + $dustInQuote
+                    : $exitQuote - $entryQuote - $feeInQuote + $dustInQuote;
                 $pnlPercent = $entryQuote > 0 ? ($pnl / $entryQuote) * 100 : 0;
             } else {
                 $unexitedAmount = $entryAmount - $exitAmount;
