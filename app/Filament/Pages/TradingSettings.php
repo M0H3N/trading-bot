@@ -140,12 +140,12 @@ class TradingSettings extends Page
             [
                 'title' => 'Entry & book',
                 'description' => 'How aggressively to enter and how much of the order book to consider for pricing.',
-                'keys' => ['entry_threshold_percent', 'trade_balance_percent', 'min_order_sum_tmn', 'min_order_sum_usdt', 'depth_usd', 'tick_offset'],
+                'keys' => ['entry_threshold_percent', 'trade_balance_percent', 'min_order_sum_tmn', 'min_order_sum_usdt', 'depth_usd'],
             ],
             [
                 'title' => 'Exit ladder',
                 'description' => 'Parameters for scaling out of positions and pegging exit orders to the book.',
-                'keys' => ['initial_exit_percent', 'exit_step_percent', 'exit_top_ask_from_percent', 'minimum_exit_percent'],
+                'keys' => ['initial_exit_percent', 'exit_step_percent', 'exit_top_ask_from_percent'],
             ],
             [
                 'title' => 'Risk & circuit breaker',
@@ -185,12 +185,6 @@ class TradingSettings extends Page
                     'live' => 'Live — real exchange orders',
                 ])
                 ->native(false)
-                ->required(),
-            'tick_offset' => TextInput::make($key)
-                ->label($label)
-                ->helperText($helper ?? 'Whole-number offset from the top-of-book price (ticks).')
-                ->numeric()
-                ->minValue(0)
                 ->required(),
             'min_order_sum_tmn' => TextInput::make($key)
                 ->label($label)

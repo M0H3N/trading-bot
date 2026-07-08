@@ -3,8 +3,6 @@
 return [
     'mode' => env('TRADING_MODE', 'paper'),
     'default_exchange' => env('TRADING_DEFAULT_EXCHANGE', 'wallex'),
-    /** @deprecated Use trading.queues.* instead. */
-    'queue' => env('TRADING_QUEUE', 'trading'),
     'queues' => [
         'evaluate' => env('TRADING_QUEUE_EVALUATE', 'trading-evaluate'),
         'monitor' => env('TRADING_QUEUE_MONITOR', 'trading-monitor'),
@@ -12,7 +10,6 @@ return [
         'maintenance' => env('TRADING_QUEUE_MAINTENANCE', 'trading-maintenance'),
     ],
     'lock_ttl' => (int) env('TRADING_LOCK_TTL', 30),
-    'monitor_interval' => (int) env('TRADING_MONITOR_INTERVAL', 5),
     'exit_interval' => (int) env('TRADING_EXIT_INTERVAL', 30),
 
     'settings' => [
@@ -23,14 +20,12 @@ return [
         'initial_exit_percent' => '0.10',
         'exit_step_percent' => '0.01',
         'exit_top_ask_from_percent' => '0.07',
-        'minimum_exit_percent' => '0.02',
         'stop_loss_percent' => '1.00',
         'trade_balance_percent' => '25.00',
         'min_order_sum_tmn' => '50000',
         'min_order_sum_usdt' => '1',
         'blocker_threshold_tmn' => '15000000',
         'blocker_threshold_usdt' => '100',
-        'tick_offset' => '4',
         'depth_usd' => '2000',
     ],
 
