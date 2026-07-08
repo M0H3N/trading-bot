@@ -38,9 +38,4 @@ final class TradingQueueService
             self::maintenance(),
         ];
     }
-
-    public static function exitOverlapKey(string $exchange, string $baseAsset): string
-    {
-        return 'trading:exit:'.strtolower($exchange).':'.strtoupper($baseAsset);
-    }
 }

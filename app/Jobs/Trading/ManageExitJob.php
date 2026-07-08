@@ -6,15 +6,15 @@ use App\Domain\Trading\Services\ExitManagementService;
 use App\Domain\Trading\Services\TradingQueueService;
 use App\Models\Deal;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Queue\Middleware\WithoutOverlapping;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
-class ManageExitJob implements ShouldQueue
+class ManageExitJob implements ShouldBeUnique, ShouldQueue
 {
     use Dispatchable;
     use InteractsWithQueue;
@@ -25,21 +25,16 @@ class ManageExitJob implements ShouldQueue
 
     public int $backoff = 10;
 
+    public int $uniqueFor = 90;
+
     public function __construct(public readonly int $dealId)
     {
         $this->onQueue(TradingQueueService::exit());
     }
 
-    /**
-     * @return array<int, object>
-     */
-    public function middleware(): array
+    public function uniqueId(): string
     {
-        return [
-            (new WithoutOverlapping($this->overlapKey()))
-                ->releaseAfter(10)
-                ->expireAfter((int) config('trading.lock_ttl') + 30),
-        ];
+        return 'manage-exit:'.$this->dealId;
     }
 
     public function handle(ExitManagementService $service): void
@@ -56,16 +51,5 @@ class ManageExitJob implements ShouldQueue
     public function failed(Throwable $exception): void
     {
         Log::error('ManageExitJob failed.', ['deal_id' => $this->dealId, 'error' => $exception->getMessage()]);
-    }
-
-    protected function overlapKey(): string
-    {
-        $deal = Deal::query()->with('market')->find($this->dealId);
-
-        if (! $deal?->market) {
-            return "trading:exit:deal:{$this->dealId}";
-        }
-
-        return TradingQueueService::exitOverlapKey($deal->market->exchange, $deal->market->base_asset);
     }
 }

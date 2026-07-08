@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Domain\Trading\Services\TradingQueueService;
+use App\Domain\Trading\Services\TradingSettingsService;
 use App\Jobs\Trading\EvaluateMarketJob;
 use App\Jobs\Trading\ManageExitJob;
 use App\Jobs\Trading\MonitorOrderJob;
@@ -10,9 +11,10 @@ use App\Models\Deal;
 use App\Models\Market;
 use App\Models\TradingOrder;
 use App\Models\TradingSetting;
-use App\Domain\Trading\Services\TradingSettingsService;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
 
 class TradingQueueAssignmentTest extends TestCase
@@ -38,6 +40,27 @@ class TradingQueueAssignmentTest extends TestCase
         $job = new ManageExitJob(1);
 
         $this->assertSame(TradingQueueService::exit(), $job->queue);
+    }
+
+    public function test_manage_exit_job_is_unique_per_deal(): void
+    {
+        $job = new ManageExitJob(42);
+
+        $this->assertInstanceOf(ShouldBeUnique::class, $job);
+        $this->assertSame('manage-exit:42', $job->uniqueId());
+    }
+
+    public function test_duplicate_manage_exit_dispatches_are_deduplicated_per_deal(): void
+    {
+        Queue::fake();
+
+        ManageExitJob::dispatch(7);
+        ManageExitJob::dispatch(7);
+        ManageExitJob::dispatch(8);
+
+        Queue::assertPushed(ManageExitJob::class, 2);
+        Queue::assertPushed(ManageExitJob::class, fn (ManageExitJob $job): bool => $job->dealId === 7);
+        Queue::assertPushed(ManageExitJob::class, fn (ManageExitJob $job): bool => $job->dealId === 8);
     }
 
     public function test_worker_queues_lists_all_trading_queues_in_priority_order(): void
