@@ -25,7 +25,9 @@ class DealsTable
                 TextColumn::make('id')->label('Deal ID')->sortable()->copyable(),
                 TextColumn::make('market.symbol')->label('Market')->sortable(),
                 TextColumn::make('direction')
+                    ->label('Direction')
                     ->badge()
+                    ->sortable()
                     ->formatStateUsing(fn (string $state): string => strtoupper($state))
                     ->color(fn (string $state): string => $state === 'short' ? 'warning' : 'info'),
                 TextColumn::make('mode')->badge(),
@@ -56,10 +58,12 @@ class DealsTable
             ->filters([
                 DealIdFilter::make('id'),
                 SelectFilter::make('direction')
+                    ->label('Direction')
                     ->options([
-                        'long' => 'Long',
-                        'short' => 'Short',
-                    ]),
+                        'long' => 'Long (buy → sell)',
+                        'short' => 'Short (sell → buy)',
+                    ])
+                    ->multiple(),
                 SelectFilter::make('status')
                     ->options(self::statusOptions())
                     ->multiple(),
