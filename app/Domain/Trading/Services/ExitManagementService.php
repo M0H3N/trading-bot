@@ -269,7 +269,7 @@ class ExitManagementService
     protected function closeDeal(Deal $deal): void
     {
         $deal->forceFill([
-            'status' => 'closed',
+            'status' => $deal->status === 'stop_loss' ? 'stop_loss_closed' : 'closed',
             'closed_at' => now(),
         ])->save();
 

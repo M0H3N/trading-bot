@@ -81,7 +81,7 @@ class TradeRecorder
         $exited = false;
 
         if ($deal->isClosed()) {
-            if ($deal->status === 'closed' && (($entryAmount - $exitAmount) * $entryAverage) <= $this->minDiffEntryExit($market->quote_asset)) {
+            if (in_array($deal->status, ['closed', 'stop_loss_closed'], true) && (($entryAmount - $exitAmount) * $entryAverage) <= $this->minDiffEntryExit($market->quote_asset)) {
                 $pnl = $exitQuote - $entryQuote - $feeInQuote;
                 $pnlPercent = $entryQuote > 0 ? ($pnl / $entryQuote) * 100 : 0;
             } else {
@@ -99,7 +99,7 @@ class TradeRecorder
         } elseif ($entryAmount > 0 && $exitAmount <= 0) {
             $status = 'entered';
         } elseif ($exitAmount > 0 && $exitAmount < $entryAmount) {
-            $status = 'exiting';
+            $status = $deal->status === 'stop_loss' ? 'stop_loss' : 'exiting';
         }
 
         $deal->forceFill([

@@ -77,6 +77,42 @@ class StopLossExitMonitoringTest extends TestCase
         $this->assertSame('stop_loss', $deal->fresh()->status);
     }
 
+    public function test_stop_loss_deal_is_marked_stop_loss_closed_when_fully_exited(): void
+    {
+        app(TradingSettingsService::class)->syncDefaults();
+        $this->setting('exit_management_enabled', '1');
+        $this->setting('min_order_sum_tmn', '100000');
+
+        $market = Market::query()->create([
+            'exchange' => 'wallex',
+            'symbol' => 'BTCTMN',
+            'base_asset' => 'BTC',
+            'quote_asset' => 'TMN',
+            'tick_size' => '1',
+            'step_size' => '8',
+            'is_active' => true,
+        ]);
+
+        $deal = Deal::query()->create([
+            'market_id' => $market->id,
+            'mode' => 'paper',
+            'status' => 'stop_loss',
+            'entry_average_price' => '1000000000',
+            'entry_amount' => '0.00000100',
+            'exit_average_price' => '1000000000',
+            'exit_amount' => '0.00000100',
+            'opened_at' => now(),
+        ]);
+
+        app(ExitManagementService::class)->manage($deal);
+
+        $deal->refresh();
+
+        $this->assertSame('stop_loss_closed', $deal->status);
+        $this->assertNotNull($deal->closed_at);
+        $this->assertTrue($deal->isClosed());
+    }
+
     private function setting(string $key, string $value): void
     {
         TradingSetting::query()->where('key', $key)->update(['value' => $value]);
