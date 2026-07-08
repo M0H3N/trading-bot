@@ -54,7 +54,7 @@ class MarketEvaluationService
             $usdtTmnPrice = $market->quote_asset === 'TMN'
                 ? $this->pricing->averagePriceOfDepth(
                     $client->getOrderBook('USDTTMN'),
-                    'bids',
+                    $direction === Deal::DIRECTION_SHORT ? 'asks' : 'bids',
                     $depthUsd,
                     'USDT',
                     depthInBaseAsset: true,
