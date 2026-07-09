@@ -61,6 +61,14 @@ class TradingOrder extends Model
                             'trades',
                             fn (Builder $trades): Builder => $trades->whereColumn('trades.side', 'orders.side'),
                         );
+                })
+                ->orWhere(function (Builder $query): void {
+                    $query->entryLeg()
+                        ->where('status', 'filled')
+                        ->whereHas(
+                            'deal',
+                            fn (Builder $deal): Builder => $deal->where('status', 'opening'),
+                        );
                 });
         });
     }

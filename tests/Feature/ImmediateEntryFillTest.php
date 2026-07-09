@@ -54,13 +54,10 @@ class ImmediateEntryFillTest extends TestCase
         ]);
 
         Http::fake([
-            'api.wallex.ir/v1/account/orders/immediate-fill-test' => Http::response([
-                'result' => [
-                    'status' => 'FILLED',
-                    'executedQty' => '0.01',
-                    'averagePrice' => '1000000000',
-                ],
-            ]),
+            'api.wallex.ir/v1/depth*' => Http::response(['result' => [
+                'bid' => [['price' => '999000000', 'quantity' => '1']],
+                'ask' => [['price' => '1000000000', 'quantity' => '1']],
+            ]]),
         ]);
 
         app(OrderMonitoringService::class)->monitor($order);
@@ -75,6 +72,119 @@ class ImmediateEntryFillTest extends TestCase
         $this->assertSame('entered', $deal->status);
         $this->assertGreaterThan(0, (float) $deal->entry_amount);
         $this->assertGreaterThan(0, (float) $deal->entry_average_price);
+    }
+
+    public function test_monitor_transitions_deal_to_entered_when_active_entry_order_becomes_filled(): void
+    {
+        app(TradingSettingsService::class)->syncDefaults();
+        $this->setting('market_evaluation_enabled', '1');
+
+        $market = Market::query()->create([
+            'exchange' => 'wallex',
+            'symbol' => 'BTCTMN',
+            'base_asset' => 'BTC',
+            'quote_asset' => 'TMN',
+            'tick_size' => '1',
+            'step_size' => '1',
+            'is_active' => true,
+        ]);
+
+        $deal = Deal::query()->create([
+            'market_id' => $market->id,
+            'mode' => 'paper',
+            'status' => 'opening',
+            'opened_at' => now(),
+        ]);
+
+        $order = TradingOrder::query()->create([
+            'market_id' => $market->id,
+            'deal_id' => $deal->id,
+            'exchange' => 'wallex',
+            'symbol' => 'BTCTMN',
+            'client_id' => 'active-to-filled-test',
+            'mode' => 'paper',
+            'side' => 'buy',
+            'type' => 'limit',
+            'status' => 'open',
+            'price' => '1000000000',
+            'amount' => '0.01',
+            'filled_amount' => '0',
+        ]);
+
+        Http::fake([
+            'api.wallex.ir/v1/depth*' => Http::response(['result' => [
+                'bid' => [['price' => '999000000', 'quantity' => '1']],
+                'ask' => [['price' => '1000000000', 'quantity' => '1']],
+            ]]),
+        ]);
+
+        app(OrderMonitoringService::class)->monitor($order);
+
+        $deal->refresh();
+        $order->refresh();
+
+        $this->assertSame('filled', $order->status);
+        $this->assertSame('entered', $deal->status);
+        $this->assertDatabaseHas('trades', ['order_id' => $order->id, 'side' => 'buy']);
+    }
+
+    public function test_monitor_recovers_deal_stuck_in_opening_after_entry_fill(): void
+    {
+        app(TradingSettingsService::class)->syncDefaults();
+
+        $market = Market::query()->create([
+            'exchange' => 'wallex',
+            'symbol' => 'BTCTMN',
+            'base_asset' => 'BTC',
+            'quote_asset' => 'TMN',
+            'tick_size' => '1',
+            'step_size' => '1',
+            'is_active' => true,
+        ]);
+
+        $deal = Deal::query()->create([
+            'market_id' => $market->id,
+            'mode' => 'paper',
+            'status' => 'opening',
+            'entry_average_price' => '1000000000',
+            'entry_amount' => '0.010000000000',
+            'opened_at' => now(),
+        ]);
+
+        $order = TradingOrder::query()->create([
+            'market_id' => $market->id,
+            'deal_id' => $deal->id,
+            'exchange' => 'wallex',
+            'symbol' => 'BTCTMN',
+            'client_id' => 'stuck-opening-recovery',
+            'mode' => 'paper',
+            'side' => 'buy',
+            'type' => 'limit',
+            'status' => 'filled',
+            'price' => '1000000000',
+            'amount' => '0.01',
+            'filled_amount' => '0.01',
+        ]);
+
+        \App\Models\Trade::query()->create([
+            'market_id' => $market->id,
+            'deal_id' => $deal->id,
+            'order_id' => $order->id,
+            'exchange_trade_id' => '',
+            'mode' => 'paper',
+            'side' => 'buy',
+            'price' => '1000000000',
+            'amount' => '0.01',
+            'quote_amount' => '10000000',
+            'fee' => '0',
+            'fee_asset' => 'BTC',
+            'filled_at' => now(),
+            'metadata' => ['source' => 'order_status'],
+        ]);
+
+        app(OrderMonitoringService::class)->monitor($order);
+
+        $this->assertSame('entered', $deal->refresh()->status);
     }
 
     public function test_monitorable_scope_includes_filled_entries_without_trades(): void
