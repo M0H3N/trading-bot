@@ -74,6 +74,10 @@ class CancelOpenOrderService
                 'filled_amount' => $status->filledAmount ?? 0,
                 'last_checked_at' => now(),
             ])->save();
+
+            if ($order->deal_id) {
+                $this->tradeRecorder->recalculateDeal($order->deal()->first());
+            }
         } catch (Throwable $exception) {
             Log::warning('Failed to refresh open order status after cancel.', [
                 'order_id' => $order->id,

@@ -69,6 +69,15 @@ class TradingOrder extends Model
                             'deal',
                             fn (Builder $deal): Builder => $deal->where('status', 'opening'),
                         );
+                })
+                ->orWhere(function (Builder $query): void {
+                    $query->entryLeg()
+                        ->where('status', 'cancelled')
+                        ->where('filled_amount', '>', 0)
+                        ->whereHas(
+                            'deal',
+                            fn (Builder $deal): Builder => $deal->where('status', 'opening'),
+                        );
                 });
         });
     }

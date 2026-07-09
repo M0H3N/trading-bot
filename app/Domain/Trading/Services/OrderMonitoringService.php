@@ -3,6 +3,7 @@
 namespace App\Domain\Trading\Services;
 
 use App\Domain\Exchange\ExchangeManager;
+use App\Models\Deal;
 use App\Models\TradingOrder;
 use Illuminate\Support\Facades\Cache;
 
@@ -25,9 +26,7 @@ class OrderMonitoringService
             $isActive = in_array($order->status, ['pending', 'open', 'partially_filled'], true);
             $needsFillRecovery = $order->status === 'filled'
                 && ! $order->trades()->where('side', $order->side)->exists();
-            $needsDealStatusRecovery = $order->status === 'filled'
-                && $order->deal_id
-                && $order->deal()->where('status', 'opening')->exists();
+            $needsDealStatusRecovery = $this->needsDealStatusRecovery($order);
 
             if (! $isActive && ! $needsFillRecovery && ! $needsDealStatusRecovery) {
                 return;
@@ -42,10 +41,12 @@ class OrderMonitoringService
             $client = $this->exchanges->client($order->exchange, $order->mode);
             $status = $client->getOrderStatus($order->client_id);
 
-            $averagePrice = $status->averagePrice ?? EntryOrderPayload::averagePrice($status->raw);
             $filledAmount = EntryOrderPayload::filledAmount($status->raw) ?? $status->filledAmount;
+            $averagePrice = $status->averagePrice
+                ?? EntryOrderPayload::averagePrice($status->raw)
+                ?? ($filledAmount !== null && (float) $filledAmount > 0 ? (string) $order->price : null);
 
-            if ($averagePrice !== null && $filledAmount !== null) {
+            if ($averagePrice !== null && $filledAmount !== null && (float) $filledAmount > 0) {
                 $this->tradeRecorder->recordFilledOrder($order, $averagePrice, $filledAmount, $status->raw);
             }
 
@@ -108,12 +109,45 @@ class OrderMonitoringService
             $order->forceFill(['status' => 'cancelled'])->save();
 
             if ($order->deal_id) {
-                $this->expireOpeningDeals->expireAbandonedOpeningDeal($order->deal_id);
+                $this->finalizeOpeningDealAfterEntryCancel($order->deal_id);
             }
 
             if (! $opportunityGone) {
                 $this->marketEvaluation->evaluate($market);
             }
         });
+    }
+
+    protected function needsDealStatusRecovery(TradingOrder $order): bool
+    {
+        if (! $order->deal_id || ! $order->deal()->where('status', 'opening')->exists()) {
+            return false;
+        }
+
+        if ($order->status === 'filled') {
+            return true;
+        }
+
+        return $order->status === 'cancelled'
+            && (
+                (float) $order->filled_amount > 0
+                || $order->trades()->where('side', $order->side)->exists()
+            );
+    }
+
+    protected function finalizeOpeningDealAfterEntryCancel(int $dealId): void
+    {
+        $deal = Deal::query()->find($dealId);
+
+        if (! $deal || $deal->status !== 'opening') {
+            return;
+        }
+
+        $this->tradeRecorder->recalculateDeal($deal);
+        $deal->refresh();
+
+        if ($deal->status === 'opening' && (float) $deal->entry_amount <= 0) {
+            $this->expireOpeningDeals->expireAbandonedOpeningDeal($deal->id);
+        }
     }
 }

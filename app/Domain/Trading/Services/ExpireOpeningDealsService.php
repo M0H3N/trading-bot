@@ -14,6 +14,7 @@ class ExpireOpeningDealsService
     public function __construct(
         private readonly ExchangeManager $exchanges,
         private readonly TradingSettingsService $settings,
+        private readonly TradeRecorder $tradeRecorder,
     ) {}
 
     public function expire(): void
@@ -47,6 +48,12 @@ class ExpireOpeningDealsService
                 $deal->refresh();
             }
 
+            if ($this->hasPartialEntryWithoutActiveOrder($deal)) {
+                $this->tradeRecorder->recalculateDeal($deal);
+
+                return;
+            }
+
             if ($this->hasBlockingEntryOrders($deal)) {
                 return;
             }
@@ -58,13 +65,21 @@ class ExpireOpeningDealsService
         });
     }
 
-    protected function hasBlockingEntryOrders(Deal $deal): bool
+    protected function hasPartialEntryWithoutActiveOrder(Deal $deal): bool
     {
         $entrySide = $deal->entrySide();
 
-        if ($deal->trades()->where('side', $entrySide)->exists()) {
-            return true;
+        if ($deal->hasActiveEntryOrder()) {
+            return false;
         }
+
+        return $deal->trades()->where('side', $entrySide)->exists()
+            || (float) $deal->entry_amount > 0;
+    }
+
+    protected function hasBlockingEntryOrders(Deal $deal): bool
+    {
+        $entrySide = $deal->entrySide();
 
         if ($deal->orders()->where('side', $entrySide)->active()->exists()) {
             return true;

@@ -7,6 +7,7 @@ use App\Domain\Trading\Services\TradingSettingsService;
 use App\Jobs\Trading\ExpireOpeningDealsJob;
 use App\Models\Deal;
 use App\Models\Market;
+use App\Models\Trade;
 use App\Models\TradingOrder;
 use App\Models\TradingSetting;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -78,6 +79,68 @@ class ExpireOpeningDealsTest extends TestCase
 
         $this->assertSame('opening', $deal->refresh()->status);
         $this->assertDatabaseHas('orders', ['deal_id' => $deal->id, 'status' => 'filled']);
+    }
+
+    public function test_expire_service_marks_partially_filled_cancelled_short_deal_as_entered(): void
+    {
+        app(TradingSettingsService::class)->syncDefaults();
+        $this->setting('market_evaluation_enabled', '1');
+
+        $market = Market::query()->create([
+            'exchange' => 'wallex',
+            'symbol' => 'BTCTMN',
+            'base_asset' => 'BTC',
+            'quote_asset' => 'TMN',
+            'tick_size' => '1',
+            'step_size' => '1',
+            'is_active' => true,
+        ]);
+
+        $deal = Deal::query()->create([
+            'market_id' => $market->id,
+            'mode' => 'paper',
+            'direction' => Deal::DIRECTION_SHORT,
+            'status' => 'opening',
+            'entry_average_price' => '60134',
+            'entry_amount' => '14.2',
+            'opened_at' => now(),
+        ]);
+
+        $order = TradingOrder::query()->create([
+            'market_id' => $market->id,
+            'deal_id' => $deal->id,
+            'exchange' => 'wallex',
+            'symbol' => 'BTCTMN',
+            'client_id' => 'expire-partial-short',
+            'mode' => 'paper',
+            'side' => 'sell',
+            'type' => 'limit',
+            'status' => 'cancelled',
+            'price' => '60134',
+            'amount' => '38',
+            'filled_amount' => '14.2',
+        ]);
+
+        Trade::query()->create([
+            'market_id' => $market->id,
+            'deal_id' => $deal->id,
+            'order_id' => $order->id,
+            'exchange_trade_id' => '',
+            'mode' => 'paper',
+            'side' => 'sell',
+            'price' => '60134',
+            'amount' => '14.2',
+            'quote_amount' => '853902.8',
+            'fee' => '42.69514',
+            'fee_asset' => 'TMN',
+            'filled_at' => now(),
+            'metadata' => ['source' => 'order_status'],
+        ]);
+
+        app(ExpireOpeningDealsService::class)->expire();
+
+        $this->assertSame('entered', $deal->refresh()->status);
+        $this->assertNull($deal->closed_at);
     }
 
     public function test_command_dispatches_job(): void
