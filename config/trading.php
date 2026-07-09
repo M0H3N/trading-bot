@@ -21,6 +21,7 @@ return [
         'exit_step_percent' => '0.01',
         'exit_top_ask_from_percent' => '0.07',
         'stop_loss_percent' => '1.00',
+        'force_stop_loss_percent' => '8.00',
         'trade_balance_percent' => '25.00',
         'min_order_sum_tmn' => '50000',
         'min_order_sum_usdt' => '1',

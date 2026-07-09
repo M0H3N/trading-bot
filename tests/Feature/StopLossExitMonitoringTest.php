@@ -156,6 +156,251 @@ class StopLossExitMonitoringTest extends TestCase
         $this->assertTrue($deal->isClosed());
     }
 
+    public function test_force_stop_loss_activates_immediately_when_fair_price_drops_eight_percent_below_entry(): void
+    {
+        config()->set('trading.mode', 'paper');
+        config()->set('trading.exit_interval', 0);
+        app(TradingSettingsService::class)->syncDefaults();
+        $this->setting('exit_management_enabled', '1');
+        $this->setting('trading_mode', 'paper');
+        $this->setting('stop_loss_percent', '1.00');
+        $this->setting('force_stop_loss_percent', '8.00');
+
+        $market = Market::query()->create([
+            'exchange' => 'wallex',
+            'symbol' => 'BTCTMN',
+            'base_asset' => 'BTC',
+            'quote_asset' => 'TMN',
+            'tick_size' => '1',
+            'step_size' => '1',
+            'is_active' => true,
+        ]);
+
+        $deal = Deal::query()->create([
+            'market_id' => $market->id,
+            'mode' => 'paper',
+            'status' => 'exiting',
+            'entry_average_price' => '1000000000',
+            'entry_amount' => '0.01',
+            'opened_at' => now(),
+        ]);
+
+        TradingOrder::query()->create([
+            'market_id' => $market->id,
+            'deal_id' => $deal->id,
+            'exchange' => 'wallex',
+            'symbol' => 'BTCTMN',
+            'client_id' => 'force-stop-loss-test',
+            'mode' => 'paper',
+            'side' => 'sell',
+            'type' => 'limit',
+            'status' => 'open',
+            'price' => '1001000000',
+            'amount' => '0.01',
+            'metadata' => ['exit_percent' => 0.10],
+            'created_at' => now()->subMinute(),
+        ]);
+
+        Http::fake([
+            'api.wallex.ir/v1/all-fairPrice' => Http::response(['result' => ['BTCTMN' => '919000000', 'USDTTMN' => '70000']]),
+            'api.wallex.ir/v1/depth*' => Http::response(['result' => [
+                'bid' => [['price' => '918000000', 'quantity' => '1']],
+                'ask' => [['price' => '919000000', 'quantity' => '1']],
+            ]]),
+        ]);
+
+        app(ExitManagementService::class)->manage($deal);
+
+        $deal->refresh();
+
+        $this->assertSame('stop_loss', $deal->status);
+        $this->assertDatabaseHas('orders', [
+            'deal_id' => $deal->id,
+            'side' => 'sell',
+            'status' => 'open',
+            'price' => '919000000',
+        ]);
+    }
+
+    public function test_stop_loss_does_not_activate_before_one_hour_breach(): void
+    {
+        config()->set('trading.mode', 'paper');
+        config()->set('trading.exit_interval', 0);
+        app(TradingSettingsService::class)->syncDefaults();
+        $this->setting('exit_management_enabled', '1');
+        $this->setting('trading_mode', 'paper');
+        $this->setting('stop_loss_percent', '1.00');
+        $this->setting('force_stop_loss_percent', '8.00');
+
+        $market = Market::query()->create([
+            'exchange' => 'wallex',
+            'symbol' => 'BTCTMN',
+            'base_asset' => 'BTC',
+            'quote_asset' => 'TMN',
+            'tick_size' => '1',
+            'step_size' => '1',
+            'is_active' => true,
+        ]);
+
+        $deal = Deal::query()->create([
+            'market_id' => $market->id,
+            'mode' => 'paper',
+            'status' => 'exiting',
+            'entry_average_price' => '1000000000',
+            'entry_amount' => '0.01',
+            'metadata' => ['stop_loss_breach_at' => now()->subMinutes(30)->toIso8601String()],
+            'opened_at' => now(),
+        ]);
+
+        TradingOrder::query()->create([
+            'market_id' => $market->id,
+            'deal_id' => $deal->id,
+            'exchange' => 'wallex',
+            'symbol' => 'BTCTMN',
+            'client_id' => 'stop-loss-wait-test',
+            'mode' => 'paper',
+            'side' => 'sell',
+            'type' => 'limit',
+            'status' => 'open',
+            'price' => '1001000000',
+            'amount' => '0.01',
+            'metadata' => ['exit_percent' => 0.10],
+            'created_at' => now()->subMinute(),
+        ]);
+
+        Http::fake([
+            'api.wallex.ir/v1/all-fairPrice' => Http::response(['result' => ['BTCTMN' => '989000000', 'USDTTMN' => '70000']]),
+            'api.wallex.ir/v1/depth*' => Http::response(['result' => [
+                'bid' => [['price' => '988000000', 'quantity' => '1']],
+                'ask' => [['price' => '989000000', 'quantity' => '1']],
+            ]]),
+        ]);
+
+        app(ExitManagementService::class)->manage($deal);
+
+        $this->assertSame('exiting', $deal->fresh()->status);
+    }
+
+    public function test_stop_loss_activates_after_one_hour_breach(): void
+    {
+        config()->set('trading.mode', 'paper');
+        config()->set('trading.exit_interval', 0);
+        app(TradingSettingsService::class)->syncDefaults();
+        $this->setting('exit_management_enabled', '1');
+        $this->setting('trading_mode', 'paper');
+        $this->setting('stop_loss_percent', '1.00');
+        $this->setting('force_stop_loss_percent', '8.00');
+
+        $market = Market::query()->create([
+            'exchange' => 'wallex',
+            'symbol' => 'BTCTMN',
+            'base_asset' => 'BTC',
+            'quote_asset' => 'TMN',
+            'tick_size' => '1',
+            'step_size' => '1',
+            'is_active' => true,
+        ]);
+
+        $deal = Deal::query()->create([
+            'market_id' => $market->id,
+            'mode' => 'paper',
+            'status' => 'exiting',
+            'entry_average_price' => '1000000000',
+            'entry_amount' => '0.01',
+            'metadata' => ['stop_loss_breach_at' => now()->subHours(2)->toIso8601String()],
+            'opened_at' => now(),
+        ]);
+
+        TradingOrder::query()->create([
+            'market_id' => $market->id,
+            'deal_id' => $deal->id,
+            'exchange' => 'wallex',
+            'symbol' => 'BTCTMN',
+            'client_id' => 'stop-loss-hour-test',
+            'mode' => 'paper',
+            'side' => 'sell',
+            'type' => 'limit',
+            'status' => 'open',
+            'price' => '1001000000',
+            'amount' => '0.01',
+            'metadata' => ['exit_percent' => 0.10],
+            'created_at' => now()->subMinute(),
+        ]);
+
+        Http::fake([
+            'api.wallex.ir/v1/all-fairPrice' => Http::response(['result' => ['BTCTMN' => '989000000', 'USDTTMN' => '70000']]),
+            'api.wallex.ir/v1/depth*' => Http::response(['result' => [
+                'bid' => [['price' => '988000000', 'quantity' => '1']],
+                'ask' => [['price' => '989000000', 'quantity' => '1']],
+            ]]),
+        ]);
+
+        app(ExitManagementService::class)->manage($deal);
+
+        $this->assertSame('stop_loss', $deal->fresh()->status);
+    }
+
+    public function test_stop_loss_breach_timestamp_is_recorded_on_first_threshold_cross(): void
+    {
+        config()->set('trading.mode', 'paper');
+        config()->set('trading.exit_interval', 0);
+        app(TradingSettingsService::class)->syncDefaults();
+        $this->setting('exit_management_enabled', '1');
+        $this->setting('trading_mode', 'paper');
+        $this->setting('stop_loss_percent', '1.00');
+        $this->setting('force_stop_loss_percent', '8.00');
+
+        $market = Market::query()->create([
+            'exchange' => 'wallex',
+            'symbol' => 'BTCTMN',
+            'base_asset' => 'BTC',
+            'quote_asset' => 'TMN',
+            'tick_size' => '1',
+            'step_size' => '1',
+            'is_active' => true,
+        ]);
+
+        $deal = Deal::query()->create([
+            'market_id' => $market->id,
+            'mode' => 'paper',
+            'status' => 'exiting',
+            'entry_average_price' => '1000000000',
+            'entry_amount' => '0.01',
+            'opened_at' => now(),
+        ]);
+
+        TradingOrder::query()->create([
+            'market_id' => $market->id,
+            'deal_id' => $deal->id,
+            'exchange' => 'wallex',
+            'symbol' => 'BTCTMN',
+            'client_id' => 'stop-loss-breach-record-test',
+            'mode' => 'paper',
+            'side' => 'sell',
+            'type' => 'limit',
+            'status' => 'open',
+            'price' => '1001000000',
+            'amount' => '0.01',
+            'metadata' => ['exit_percent' => 0.10],
+            'created_at' => now()->subMinute(),
+        ]);
+
+        Http::fake([
+            'api.wallex.ir/v1/all-fairPrice' => Http::response(['result' => ['BTCTMN' => '989000000', 'USDTTMN' => '70000']]),
+            'api.wallex.ir/v1/depth*' => Http::response(['result' => [
+                'bid' => [['price' => '988000000', 'quantity' => '1']],
+                'ask' => [['price' => '989000000', 'quantity' => '1']],
+            ]]),
+        ]);
+
+        app(ExitManagementService::class)->manage($deal);
+
+        $deal->refresh();
+
+        $this->assertSame('exiting', $deal->status);
+        $this->assertArrayHasKey('stop_loss_breach_at', $deal->metadata ?? []);
+    }
+
     private function setting(string $key, string $value): void
     {
         TradingSetting::query()->where('key', $key)->update(['value' => $value]);

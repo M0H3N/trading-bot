@@ -150,7 +150,7 @@ class TradingSettings extends Page
             [
                 'title' => 'Risk & circuit breaker',
                 'description' => 'Hard risk limits expressed as percentages or quote currency thresholds.',
-                'keys' => ['stop_loss_percent', 'blocker_threshold_tmn'],
+                'keys' => ['stop_loss_percent', 'force_stop_loss_percent', 'blocker_threshold_tmn'],
             ],
         ];
     }

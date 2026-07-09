@@ -11,6 +11,7 @@ use App\Models\Market;
 use App\Models\TradingOrder;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
@@ -120,7 +121,7 @@ class ExitManagementService
             $currentPercent = (float) ($order->metadata['exit_percent'] ?? $this->settings->decimal('initial_exit_percent'));
             $nextPercent = max($floorPercent, $currentPercent - (float) $this->settings->decimal('exit_step_percent'));
             $desiredPrice = $this->exitPriceFromPercent($deal, $nextPercent);
-            $stopLoss = abs($desiredPrice - (float) $fair->price) / (float) $fair->price * 100 >= (float) $this->settings->decimal('stop_loss_percent');
+            $stopLoss = $this->shouldActivateStopLoss($deal, (float) $fair->price);
 
             if ($stopLoss) {
                 $deal->forceFill(['status' => 'stop_loss'])->save();
@@ -361,6 +362,75 @@ class ExitManagementService
             : (1 + ($exitPercent / 100));
 
         return (float) $deal->entry_average_price * $multiplier;
+    }
+
+    protected function shouldActivateStopLoss(Deal $deal, float $fairPrice): bool
+    {
+        $entryPrice = (float) $deal->entry_average_price;
+
+        if ($entryPrice <= 0) {
+            return false;
+        }
+
+        $lossPercent = $this->adverseLossPercent($deal, $entryPrice, $fairPrice);
+        $stopLossPercent = (float) $this->settings->decimal('stop_loss_percent');
+        $forceStopLossPercent = (float) $this->settings->decimal('force_stop_loss_percent');
+
+        if ($lossPercent >= $forceStopLossPercent) {
+            $this->clearStopLossBreachMetadata($deal);
+
+            return true;
+        }
+
+        if ($lossPercent < $stopLossPercent) {
+            $this->clearStopLossBreachMetadata($deal);
+
+            return false;
+        }
+
+        $metadata = $deal->metadata ?? [];
+        $breachAt = $metadata['stop_loss_breach_at'] ?? null;
+
+        if ($breachAt === null) {
+            $deal->forceFill([
+                'metadata' => array_merge($metadata, [
+                    'stop_loss_breach_at' => now()->toIso8601String(),
+                ]),
+            ])->save();
+
+            return false;
+        }
+
+        return Carbon::parse($breachAt)->lte(now()->subHour());
+    }
+
+    protected function adverseLossPercent(Deal $deal, float $entryPrice, float $fairPrice): float
+    {
+        if ($deal->isLong()) {
+            if ($fairPrice >= $entryPrice) {
+                return 0.0;
+            }
+
+            return ($entryPrice - $fairPrice) / $entryPrice * 100;
+        }
+
+        if ($fairPrice <= $entryPrice) {
+            return 0.0;
+        }
+
+        return ($fairPrice - $entryPrice) / $entryPrice * 100;
+    }
+
+    protected function clearStopLossBreachMetadata(Deal $deal): void
+    {
+        $metadata = $deal->metadata ?? [];
+
+        if (! isset($metadata['stop_loss_breach_at'])) {
+            return;
+        }
+
+        unset($metadata['stop_loss_breach_at']);
+        $deal->forceFill(['metadata' => $metadata])->save();
     }
 
     /**
