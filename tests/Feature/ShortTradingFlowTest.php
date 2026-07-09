@@ -142,12 +142,20 @@ class ShortTradingFlowTest extends TestCase
             'opened_at' => now(),
         ]);
 
+        Http::fake([
+            'api.wallex.ir/v1/all-fairPrice' => Http::response(['result' => ['BTCTMN' => '1003000000', 'USDTTMN' => '70000']]),
+            'api.wallex.ir/v1/depth*' => Http::response(['result' => [
+                'bid' => [['price' => '1002000000', 'quantity' => '1']],
+                'ask' => [['price' => '1003000000', 'quantity' => '1']],
+            ]]),
+        ]);
+
         app(ExitManagementService::class)->manage($deal);
 
         $this->assertDatabaseHas('orders', [
             'deal_id' => $deal->id,
             'side' => 'buy',
-            'price' => '1001997000',
+            'price' => '1002000000',
         ]);
     }
 

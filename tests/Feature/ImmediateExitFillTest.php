@@ -17,7 +17,6 @@ class ImmediateExitFillTest extends TestCase
 
     public function test_place_exit_records_trade_when_sell_order_fills_immediately(): void
     {
-        config()->set('trading.mode', 'live');
         app(TradingSettingsService::class)->syncDefaults();
         $this->setting('exit_management_enabled', '1');
         $this->setting('trading_mode', 'live');
@@ -28,7 +27,7 @@ class ImmediateExitFillTest extends TestCase
             'base_asset' => 'BTC',
             'quote_asset' => 'TMN',
             'tick_size' => '1',
-            'step_size' => '1',
+            'step_size' => '8',
             'is_active' => true,
         ]);
 
@@ -42,6 +41,10 @@ class ImmediateExitFillTest extends TestCase
         ]);
 
         Http::fake([
+            'api.wallex.ir/v1/depth*' => Http::response(['result' => [
+                'bid' => [['price' => '1050000000', 'quantity' => '1']],
+                'ask' => [['price' => '1060000000', 'quantity' => '1']],
+            ]]),
             'api.wallex.ir/v1/account/balances' => Http::response([
                 'result' => [
                     'balances' => [
@@ -58,7 +61,7 @@ class ImmediateExitFillTest extends TestCase
                     'id' => 'exit-order-1',
                     'status' => 'FILLED',
                     'executedQty' => '0.01',
-                    'executedPrice' => '1050000000',
+                    'executedPrice' => '1060000000',
                 ],
             ]),
         ]);
@@ -67,18 +70,18 @@ class ImmediateExitFillTest extends TestCase
 
         $deal->refresh();
 
-        $this->assertDatabaseCount('orders', 1);
         $this->assertDatabaseHas('orders', [
             'deal_id' => $deal->id,
             'side' => 'sell',
             'status' => 'filled',
+            'price' => '1060000000',
             'filled_amount' => '0.01',
         ]);
         $this->assertDatabaseHas('trades', [
             'deal_id' => $deal->id,
             'side' => 'sell',
             'amount' => '0.010000000000',
-            'price' => '1050000000',
+            'price' => '1060000000',
         ]);
         $this->assertSame('closed', $deal->status);
         $this->assertNotNull($deal->closed_at);

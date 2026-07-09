@@ -2,6 +2,8 @@
 
 namespace App\Domain\Trading\Services;
 
+use App\Domain\Exchange\DTO\OrderBook;
+use App\Domain\Exchange\DTO\OrderBookLevel;
 use App\Domain\Exchange\DTO\PlaceOrderData;
 use App\Domain\Exchange\ExchangeManager;
 use App\Models\Deal;
@@ -94,28 +96,43 @@ class ExitManagementService
         $market = $order->market()->firstOrFail();
         $book = $client->getOrderBook($order->symbol);
         $fair = $client->getFairPrice($order->symbol);
-        $topAsk = $book->topAsk();
+        $isStopLoss = $deal->status === 'stop_loss';
 
-        if ($deal->status === 'stop_loss' && $topAsk) {
-            $tickSize = (int) $market->tick_size;
-            $orderPrice = number_format((float) $order->price, $tickSize, '.', '');
-            $topAskPrice = number_format((float) $topAsk->price, $tickSize, '.', '');
+        if ($isStopLoss) {
+            $bookLevel = $this->exitBookLevel($deal, $book);
 
-            if ($orderPrice === $topAskPrice) {
+            if ($bookLevel === null) {
                 return;
             }
-        }
 
-        $floorPercent = (float) $this->settings->decimal('exit_top_ask_from_percent');
-        $currentPercent = (float) ($order->metadata['exit_percent'] ?? $this->settings->decimal('initial_exit_percent'));
-        $nextPercent = max($floorPercent, $currentPercent - (float) $this->settings->decimal('exit_step_percent'));
-        $desiredPrice = $this->exitPriceFromPercent($deal, $nextPercent);
-        $stopLoss = abs($desiredPrice - (float) $fair->price) / (float) $fair->price * 100 >= (float) $this->settings->decimal('stop_loss_percent');
+            $tickSize = (int) $market->tick_size;
+            $orderPrice = number_format((float) $order->price, $tickSize, '.', '');
+            $bookPrice = number_format((float) $bookLevel->price, $tickSize, '.', '');
 
-        if ($stopLoss) {
-            $deal->forceFill(['status' => 'stop_loss'])->save();
-            $desiredPrice = (float) $topAsk->price;
+            if ($orderPrice === $bookPrice) {
+                return;
+            }
+
+            $desiredPrice = (float) $bookLevel->price;
             $nextPercent = 0.0;
+        } else {
+            $floorPercent = (float) $this->settings->decimal('exit_top_ask_from_percent');
+            $currentPercent = (float) ($order->metadata['exit_percent'] ?? $this->settings->decimal('initial_exit_percent'));
+            $nextPercent = max($floorPercent, $currentPercent - (float) $this->settings->decimal('exit_step_percent'));
+            $desiredPrice = $this->exitPriceFromPercent($deal, $nextPercent);
+            $stopLoss = abs($desiredPrice - (float) $fair->price) / (float) $fair->price * 100 >= (float) $this->settings->decimal('stop_loss_percent');
+
+            if ($stopLoss) {
+                $deal->forceFill(['status' => 'stop_loss'])->save();
+                $bookLevel = $this->exitBookLevel($deal, $book);
+
+                if ($bookLevel === null) {
+                    return;
+                }
+
+                $desiredPrice = (float) $bookLevel->price;
+                $nextPercent = 0.0;
+            }
         }
 
         $replacementPrice = number_format($desiredPrice, $market->tick_size, '.', '');
@@ -137,7 +154,7 @@ class ExitManagementService
     protected function placeExitOrder(Deal $deal, float $amount, float $exitPercent, ?string $forcedPrice = null): ?TradingOrder
     {
         $market = $deal->market()->firstOrFail();
-        $price = $forcedPrice ?? $this->formatExitPrice($deal, $market, $exitPercent);
+        $price = $forcedPrice ?? $this->resolveExitPrice($deal, $market, $exitPercent);
 
         return $this->withAssetLock($market, $deal, function () use ($deal, $market, $amount, $exitPercent, $price): ?TradingOrder {
             $prepared = $this->prepareExitAmount($deal, $market, $amount, $price);
@@ -312,6 +329,24 @@ class ExitManagementService
         $key = "trading:asset:{$market->exchange}:{$asset}";
 
         return Cache::lock($key, (int) config('trading.lock_ttl'))->block(5, $callback);
+    }
+
+    protected function resolveExitPrice(Deal $deal, Market $market, float $exitPercent): string
+    {
+        $client = $this->exchanges->client($market->exchange, $deal->mode);
+        $book = $client->getOrderBook($market->symbol);
+        $bookLevel = $this->exitBookLevel($deal, $book);
+
+        if ($bookLevel !== null) {
+            return number_format((float) $bookLevel->price, $market->tick_size, '.', '');
+        }
+
+        return $this->formatExitPrice($deal, $market, $exitPercent);
+    }
+
+    protected function exitBookLevel(Deal $deal, OrderBook $book): ?OrderBookLevel
+    {
+        return $deal->isLong() ? $book->topAsk() : $book->topBid();
     }
 
     protected function formatExitPrice(Deal $deal, Market $market, float $exitPercent): string

@@ -77,6 +77,49 @@ class StopLossExitMonitoringTest extends TestCase
         $this->assertSame('stop_loss', $deal->fresh()->status);
     }
 
+    public function test_long_exit_places_sell_at_top_ask(): void
+    {
+        config()->set('trading.mode', 'paper');
+        app(TradingSettingsService::class)->syncDefaults();
+        $this->setting('exit_management_enabled', '1');
+        $this->setting('trading_mode', 'paper');
+
+        $market = Market::query()->create([
+            'exchange' => 'wallex',
+            'symbol' => 'BTCTMN',
+            'base_asset' => 'BTC',
+            'quote_asset' => 'TMN',
+            'tick_size' => '1',
+            'step_size' => '1',
+            'is_active' => true,
+        ]);
+
+        $deal = Deal::query()->create([
+            'market_id' => $market->id,
+            'mode' => 'paper',
+            'status' => 'entered',
+            'entry_average_price' => '1000000000',
+            'entry_amount' => '0.01',
+            'opened_at' => now(),
+        ]);
+
+        Http::fake([
+            'api.wallex.ir/v1/all-fairPrice' => Http::response(['result' => ['BTCTMN' => '1000000000', 'USDTTMN' => '70000']]),
+            'api.wallex.ir/v1/depth*' => Http::response(['result' => [
+                'bid' => [['price' => '1002000000', 'quantity' => '1']],
+                'ask' => [['price' => '1003000000', 'quantity' => '1']],
+            ]]),
+        ]);
+
+        app(ExitManagementService::class)->manage($deal);
+
+        $this->assertDatabaseHas('orders', [
+            'deal_id' => $deal->id,
+            'side' => 'sell',
+            'price' => '1003000000',
+        ]);
+    }
+
     public function test_stop_loss_deal_is_marked_stop_loss_closed_when_fully_exited(): void
     {
         app(TradingSettingsService::class)->syncDefaults();
