@@ -3,6 +3,7 @@
 namespace App\Infrastructure\Exchange\Wallex;
 
 use App\Domain\Exchange\Contracts\ExchangeClient;
+use App\Domain\Exchange\Services\ExchangeApiRateLimiterService;
 use App\Domain\Exchange\DTO\BalanceData;
 use App\Domain\Exchange\DTO\FairPriceData;
 use App\Domain\Exchange\DTO\OrderBook;
@@ -27,6 +28,7 @@ class WallexClient implements ExchangeClient
     public function __construct(
         private readonly CircuitBreakerService $circuitBreaker,
         private readonly HttpLogService $httpLogs,
+        private readonly ExchangeApiRateLimiterService $rateLimiter,
     ) {}
 
     public function name(): string
@@ -178,6 +180,8 @@ class WallexClient implements ExchangeClient
         $startedAt = microtime(true);
         $requestBody = $options['json'] ?? $options['query'] ?? null;
         $fullUrl = $absoluteUrl ? $url : rtrim((string) config('trading.exchanges.wallex.base_url'), '/').'/'.ltrim($url, '/');
+
+        $this->rateLimiter->acquire('wallex', $method, $url);
 
         try {
             $response = ($absoluteUrl ? $this->httpWithoutBaseUrl() : $this->http())->send($method, $url, $options);

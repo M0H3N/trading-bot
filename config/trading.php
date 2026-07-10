@@ -62,4 +62,48 @@ return [
         'failure_threshold' => (int) env('TRADING_CIRCUIT_FAILURE_THRESHOLD', 5),
         'cooldown_seconds' => (int) env('TRADING_CIRCUIT_COOLDOWN_SECONDS', 300),
     ],
+
+    /*
+    | Per-endpoint exchange API rate limits (Laravel RateLimiter).
+    | Keys: "{METHOD} {path}" — order paths with dynamic IDs use /account/orders/{id}.
+    | Requests wait in line (sleep) until a slot is free, up to max_wait_seconds.
+    */
+    'rate_limits' => [
+        'enabled' => env('TRADING_API_RATE_LIMIT_ENABLED', true),
+        'max_wait_seconds' => (int) env('TRADING_API_RATE_LIMIT_MAX_WAIT', 120),
+        'endpoints' => [
+            'default' => [
+                'max_attempts' => (int) env('TRADING_API_RATE_LIMIT_DEFAULT_MAX', 60),
+                'decay_seconds' => (int) env('TRADING_API_RATE_LIMIT_DEFAULT_DECAY', 60),
+            ],
+            'GET /all-fairPrice' => [
+                'max_attempts' => (int) env('TRADING_API_RATE_LIMIT_FAIR_PRICE_MAX', 100),
+                'decay_seconds' => (int) env('TRADING_API_RATE_LIMIT_FAIR_PRICE_DECAY', 60),
+            ],
+            'GET /all-markets' => [
+                'max_attempts' => (int) env('TRADING_API_RATE_LIMIT_ALL_MARKETS_MAX', 100),
+                'decay_seconds' => (int) env('TRADING_API_RATE_LIMIT_ALL_MARKETS_DECAY', 60),
+            ],
+            'GET /depth' => [
+                'max_attempts' => (int) env('TRADING_API_RATE_LIMIT_DEPTH_MAX', 900),
+                'decay_seconds' => (int) env('TRADING_API_RATE_LIMIT_DEPTH_DECAY', 60),
+            ],
+            'POST /account/orders' => [
+                'max_attempts' => (int) env('TRADING_API_RATE_LIMIT_PLACE_ORDER_MAX', 20),
+                'decay_seconds' => (int) env('TRADING_API_RATE_LIMIT_PLACE_ORDER_DECAY', 10),
+            ],
+            'DELETE /account/orders/{id}' => [
+                'max_attempts' => (int) env('TRADING_API_RATE_LIMIT_CANCEL_ORDER_MAX', 20),
+                'decay_seconds' => (int) env('TRADING_API_RATE_LIMIT_CANCEL_ORDER_DECAY', 10),
+            ],
+            'GET /account/orders/{id}' => [
+                'max_attempts' => (int) env('TRADING_API_RATE_LIMIT_GET_ORDER_MAX', 900),
+                'decay_seconds' => (int) env('TRADING_API_RATE_LIMIT_GET_ORDER_DECAY', 60),
+            ],
+            'GET /account/balances' => [
+                'max_attempts' => (int) env('TRADING_API_RATE_LIMIT_BALANCES_MAX', 900),
+                'decay_seconds' => (int) env('TRADING_API_RATE_LIMIT_BALANCES_DECAY', 60),
+            ],
+        ],
+    ],
 ];
