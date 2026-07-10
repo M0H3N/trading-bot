@@ -9,6 +9,9 @@ use Illuminate\Support\Carbon;
 
 class TradeRecorder
 {
+    public function __construct(
+        private readonly MarketBudgetService $marketBudgets,
+    ) {}
     /**
      * @param  array<string, mixed>  $exchangeRaw
      */
@@ -104,6 +107,8 @@ class TradeRecorder
             }
         }
 
+        $previousExposure = $this->marketBudgets->dealExposure($deal);
+
         $status = $deal->status;
 
         if ($deal->isClosed()) {
@@ -118,14 +123,18 @@ class TradeRecorder
             'status' => $status,
             'entry_average_price' => number_format($entryAverage, 12, '.', ''),
             'entry_amount' => number_format($entryAmount, 12, '.', ''),
+            'entry_quote' => number_format($entryQuote, 12, '.', ''),
             'exit_average_price' => number_format($exitAverage, 12, '.', ''),
             'exit_amount' => number_format($exitAmount, 12, '.', ''),
+            'exit_quote' => number_format($exitQuote, 12, '.', ''),
             'realized_pnl' => number_format($pnl, 12, '.', ''),
             'realized_pnl_percent' => number_format($pnlPercent, 8, '.', ''),
             'exited' => $exited,
             'unexited_amount' => number_format($unexitedAmount, 12, '.', ''),
             'closed_at' => $deal->isClosed() ? ($deal->closed_at ?? now()) : $deal->closed_at,
         ])->save();
+
+        $this->marketBudgets->applyDealBudgetDelta($deal, $previousExposure);
     }
 
     protected function feeInQuote(Trade $trade): float

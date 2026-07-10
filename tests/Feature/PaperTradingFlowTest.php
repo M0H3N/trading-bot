@@ -7,10 +7,12 @@ use App\Domain\Trading\Services\MarketEvaluationService;
 use App\Domain\Trading\Services\TradingSettingsService;
 use App\Infrastructure\Exchange\Paper\PaperExchangeClient;
 use App\Models\Market;
+use App\Models\MarketBudget;
 use App\Models\TradingOrder;
 use App\Models\TradingSetting;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
 
 class PaperTradingFlowTest extends TestCase
@@ -78,6 +80,39 @@ class PaperTradingFlowTest extends TestCase
 
         $this->assertNull($order);
         $this->assertDatabaseCount('orders', 0);
+    }
+
+    public function test_market_evaluation_skips_when_budget_is_exhausted(): void
+    {
+        Queue::fake();
+        config()->set('trading.mode', 'paper');
+        app(TradingSettingsService::class)->syncDefaults();
+        $this->setting('market_evaluation_enabled', '1');
+        $this->setting('trading_mode', 'paper');
+
+        $market = Market::query()->create([
+            'exchange' => 'wallex',
+            'symbol' => 'BTCTMN',
+            'base_asset' => 'BTC',
+            'quote_asset' => 'TMN',
+            'tick_size' => '1',
+            'step_size' => '1',
+            'last_price' => '1000000000',
+            'is_active' => true,
+        ]);
+
+        MarketBudget::query()->updateOrCreate(
+            ['market_id' => $market->id, 'deal_type' => 'long'],
+            ['budget_asset' => 'TMN', 'budget' => '1000000', 'used_budget' => '1000000'],
+        );
+
+        Http::fake();
+
+        $order = app(MarketEvaluationService::class)->evaluate($market);
+
+        $this->assertNull($order);
+        $this->assertDatabaseCount('orders', 0);
+        Http::assertNothingSent();
     }
 
     public function test_paper_order_status_fills_against_top_of_book(): void

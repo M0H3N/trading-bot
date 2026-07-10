@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Jobs\Trading\RecalculateMarketBudgetsJob;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -54,6 +55,20 @@ class Market extends Model
     public function deals(): HasMany
     {
         return $this->hasMany(Deal::class);
+    }
+
+    public function budgets(): HasMany
+    {
+        return $this->hasMany(MarketBudget::class);
+    }
+
+    protected static function booted(): void
+    {
+        static::saved(function (Market $market): void {
+            if ($market->wasRecentlyCreated || $market->wasChanged(['is_active', 'long_enabled', 'short_enabled'])) {
+                RecalculateMarketBudgetsJob::dispatch();
+            }
+        });
     }
 
     public function minPriceIncrement(): float

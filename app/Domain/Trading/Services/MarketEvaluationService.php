@@ -20,6 +20,7 @@ class MarketEvaluationService
         private readonly OrderBookPricingService $pricing,
         private readonly ClientOrderIdFactory $clientIds,
         private readonly TradeRecorder $tradeRecorder,
+        private readonly MarketBudgetService $marketBudgets,
     ) {}
 
     public function evaluate(Market $market): ?TradingOrder
@@ -43,6 +44,10 @@ class MarketEvaluationService
                 'deal',
                 fn ($deal) => $deal->where('direction', $direction),
             )->exists()) {
+                return null;
+            }
+
+            if ($this->marketBudgets->availableForEntry($market, $direction) <= 0) {
                 return null;
             }
 
@@ -116,11 +121,14 @@ class MarketEvaluationService
             $orderPrice = (float) $topBid->price + $market->minPriceIncrement();
         }
 
-        $balance = $client->getBalance($market->base_asset);
-        $budget = (float) $balance->available
-            * (float) $market->last_price
-            * ((float) $this->settings->decimal('trade_balance_percent') / 100);
-        $amount = $orderPrice > 0 ? $budget / $orderPrice : 0;
+        $availableBudget = $this->marketBudgets->availableForEntry($market, $direction);
+        $tradeBudget = $availableBudget * ((float) $this->settings->decimal('trade_balance_percent') / 100);
+
+        if ($direction === Deal::DIRECTION_SHORT) {
+            return [$orderPrice, $tradeBudget];
+        }
+
+        $amount = $orderPrice > 0 ? $tradeBudget / $orderPrice : 0;
 
         return [$orderPrice, $amount];
     }

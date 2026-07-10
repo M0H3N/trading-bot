@@ -43,8 +43,10 @@ class DealsTable
                     }),
                 TextColumn::make('entry_average_price'),
                 TextColumn::make('entry_amount'),
+                TextColumn::make('entry_quote'),
                 TextColumn::make('exit_average_price'),
                 TextColumn::make('exit_amount'),
+                TextColumn::make('exit_quote'),
                 TextColumn::make('realized_pnl')->sortable(),
                 TextColumn::make('realized_pnl_percent')->suffix('%')->sortable(),
                 TextColumn::make('exited')
