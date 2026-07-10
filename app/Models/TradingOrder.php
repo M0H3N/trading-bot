@@ -47,6 +47,17 @@ class TradingOrder extends Model
         return $query->whereIn('status', ['pending', 'open', 'partially_filled']);
     }
 
+    public function scopeWithUnclosedDeal(Builder $query): Builder
+    {
+        return $query->where(function (Builder $query): void {
+            $query->whereNull('deal_id')
+                ->orWhereHas(
+                    'deal',
+                    fn (Builder $deal): Builder => $deal->whereNotIn('status', Deal::CLOSED_STATUSES),
+                );
+        });
+    }
+
     /**
      * Orders that still need status polling, or entry-leg orders marked filled before a trade was recorded.
      */

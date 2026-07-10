@@ -86,7 +86,7 @@ class PnlOverviewWidget extends BaseWidget implements HasActions
             $this->realizedPnlStat('USDT', $realizedPnlByQuote),
             $this->unrealizedPnlTmnStat($pnlResetService->adjustedUnrealizedTmn()),
             Stat::make('Open Deals', (string) Deal::query()->open()->count()),
-            Stat::make('Active Orders', (string) TradingOrder::query()->active()->count()),
+            Stat::make('Active Orders', (string) TradingOrder::query()->active()->withUnclosedDeal()->count()),
         ];
     }
 

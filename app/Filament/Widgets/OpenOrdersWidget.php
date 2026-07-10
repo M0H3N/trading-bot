@@ -4,7 +4,6 @@ namespace App\Filament\Widgets;
 
 use App\Domain\Trading\Services\CancelOpenOrderService;
 use App\Jobs\Trading\CancelAllOpenOrdersJob;
-use App\Models\Deal;
 use App\Models\TradingOrder;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
@@ -84,13 +83,7 @@ class OpenOrdersWidget extends TableWidget
     {
         return TradingOrder::query()
             ->active()
-            ->where(function (Builder $query): void {
-                $query->whereNull('deal_id')
-                    ->orWhereHas(
-                        'deal',
-                        fn (Builder $deal): Builder => $deal->whereNotIn('status', Deal::CLOSED_STATUSES),
-                    );
-            })
+            ->withUnclosedDeal()
             ->with(['market', 'deal']);
     }
 }
