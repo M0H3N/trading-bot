@@ -4,6 +4,7 @@ namespace App\Filament\Widgets;
 
 use App\Domain\Trading\Services\CancelOpenOrderService;
 use App\Jobs\Trading\CancelAllOpenOrdersJob;
+use App\Models\Deal;
 use App\Models\TradingOrder;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
@@ -22,9 +23,7 @@ class OpenOrdersWidget extends TableWidget
     {
         return $table
             ->heading('Open orders')
-            ->query(fn (): Builder => TradingOrder::query()
-                ->active()
-                ->with(['market', 'deal']))
+            ->query(fn (): Builder => $this->openOrdersQuery())
             ->columns([
                 TextColumn::make('id')->label('Order ID')->sortable(),
                 TextColumn::make('deal_id')->label('Deal ID')->sortable()->placeholder('—'),
@@ -49,7 +48,7 @@ class OpenOrdersWidget extends TableWidget
                     ->modalHeading('Cancel all open orders?')
                     ->modalDescription('Every open buy and sell order will be cancelled on the exchange. This runs in the background queue.')
                     ->modalSubmitActionLabel('Yes, cancel all')
-                    ->visible(fn (): bool => TradingOrder::query()->active()->exists())
+                    ->visible(fn (): bool => $this->openOrdersQuery()->exists())
                     ->action(function (): void {
                         CancelAllOpenOrdersJob::dispatch();
 
@@ -79,5 +78,19 @@ class OpenOrdersWidget extends TableWidget
             ])
             ->defaultSort('id', 'desc')
             ->paginated([10, 25, 50]);
+    }
+
+    protected function openOrdersQuery(): Builder
+    {
+        return TradingOrder::query()
+            ->active()
+            ->where(function (Builder $query): void {
+                $query->whereNull('deal_id')
+                    ->orWhereHas(
+                        'deal',
+                        fn (Builder $deal): Builder => $deal->whereNotIn('status', Deal::CLOSED_STATUSES),
+                    );
+            })
+            ->with(['market', 'deal']);
     }
 }

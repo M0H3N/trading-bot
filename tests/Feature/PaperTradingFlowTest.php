@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Domain\Exchange\ExchangeManager;
+use App\Domain\Trading\Services\MarketBudgetService;
 use App\Domain\Trading\Services\MarketEvaluationService;
 use App\Domain\Trading\Services\TradingSettingsService;
 use App\Infrastructure\Exchange\Paper\PaperExchangeClient;
@@ -37,6 +38,8 @@ class PaperTradingFlowTest extends TestCase
             'last_price' => '1000000000',
             'is_active' => true,
         ]);
+
+        app(MarketBudgetService::class)->loadBudgetsFromExchange();
 
         Http::fake([
             'api.wallex.ir/v1/all-fairPrice' => Http::response(['result' => ['BTCTMN' => '1000000000', 'USDTTMN' => '70000']]),
