@@ -97,7 +97,9 @@ class MarketBudgetService
             ->where('market_id', $marketId)
             ->where('deal_type', $dealType)
             ->update([
-                'used_budget' => DB::raw('MAX(0, used_budget + '.$formattedDelta.')'),
+                'used_budget' => DB::raw(
+                    'CASE WHEN used_budget + '.$formattedDelta.' < 0 THEN 0 ELSE used_budget + '.$formattedDelta.' END'
+                ),
             ]);
     }
 
