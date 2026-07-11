@@ -261,6 +261,39 @@ class MarketBudgetServiceTest extends TestCase
         $this->assertEqualsWithDelta(0.0, (float) $ethBudget->budget, 0.01);
     }
 
+    public function test_remaining_budget_subtracts_open_entry_order_commitment(): void
+    {
+        Queue::fake();
+        app(TradingSettingsService::class)->syncDefaults();
+
+        $market = $this->longMarket('BTCTMN', 'BTC');
+        MarketBudget::query()->updateOrCreate(
+            ['market_id' => $market->id, 'deal_type' => 'long'],
+            ['budget_asset' => 'TMN', 'budget' => '30000000', 'used_budget' => '10000000'],
+        );
+
+        TradingOrder::query()->create([
+            'market_id' => $market->id,
+            'exchange' => 'wallex',
+            'symbol' => 'BTCTMN',
+            'client_id' => 'open-entry-commitment',
+            'mode' => 'paper',
+            'side' => 'buy',
+            'type' => 'limit',
+            'status' => 'open',
+            'price' => '1000000000',
+            'amount' => '0.025',
+            'filled_amount' => '0',
+            'quote_amount' => '25000000',
+        ]);
+
+        $service = app(MarketBudgetService::class);
+
+        $this->assertEqualsWithDelta(25_000_000.0, $service->openEntryOrdersCommitment($market, Deal::DIRECTION_LONG), 0.01);
+        $this->assertEqualsWithDelta(0.0, $service->remainingBudgetForEntry($market, Deal::DIRECTION_LONG), 0.01);
+        $this->assertFalse($service->hasBudgetForNewEntry($market, Deal::DIRECTION_LONG));
+    }
+
     public function test_market_toggle_dispatches_budget_recalculation_job(): void
     {
         Queue::fake();

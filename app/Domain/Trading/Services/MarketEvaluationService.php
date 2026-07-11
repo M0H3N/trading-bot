@@ -47,7 +47,7 @@ class MarketEvaluationService
                 return null;
             }
 
-            if ($this->marketBudgets->availableForEntry($market, $direction) <= 0) {
+            if (! $this->marketBudgets->hasBudgetForNewEntry($market, $direction)) {
                 return null;
             }
 
@@ -121,8 +121,8 @@ class MarketEvaluationService
             $orderPrice = (float) $topBid->price + $market->minPriceIncrement();
         }
 
-        $availableBudget = $this->marketBudgets->availableForEntry($market, $direction);
-        $tradeBudget = $availableBudget * ((float) $this->settings->decimal('trade_balance_percent') / 100);
+        $remainingBudget = $this->marketBudgets->remainingBudgetForEntry($market, $direction);
+        $tradeBudget = $remainingBudget * ((float) $this->settings->decimal('trade_balance_percent') / 100);
 
         if ($direction === Deal::DIRECTION_SHORT) {
             return [$orderPrice, $tradeBudget];

@@ -6,6 +6,7 @@ use App\Domain\Exchange\ExchangeManager;
 use App\Models\Deal;
 use App\Models\Market;
 use App\Models\MarketBudget;
+use App\Models\TradingOrder;
 use Illuminate\Support\Facades\DB;
 
 class MarketBudgetService
@@ -128,6 +129,48 @@ class MarketBudgetService
         }
 
         return $budget->availableBudget();
+    }
+
+    public function openEntryOrdersCommitment(Market $market, string $direction): float
+    {
+        $entrySide = $direction === Deal::DIRECTION_LONG ? 'buy' : 'sell';
+
+        return (float) TradingOrder::query()
+            ->where('market_id', $market->id)
+            ->active()
+            ->where('side', $entrySide)
+            ->where(function ($query) use ($direction): void {
+                $query->whereNull('deal_id')
+                    ->orWhereHas(
+                        'deal',
+                        fn ($deal) => $deal
+                            ->where('direction', $direction)
+                            ->whereNotIn('status', Deal::CLOSED_STATUSES),
+                    );
+            })
+            ->get(['price', 'amount', 'filled_amount'])
+            ->sum(fn (TradingOrder $order): float => $this->orderRemainingCommitment($order, $direction));
+    }
+
+    public function remainingBudgetForEntry(Market $market, string $direction): float
+    {
+        return max(0.0, $this->availableForEntry($market, $direction) - $this->openEntryOrdersCommitment($market, $direction));
+    }
+
+    public function hasBudgetForNewEntry(Market $market, string $direction): bool
+    {
+        return $this->remainingBudgetForEntry($market, $direction) > 0;
+    }
+
+    protected function orderRemainingCommitment(TradingOrder $order, string $direction): float
+    {
+        $remaining = max(0.0, (float) $order->amount - (float) $order->filled_amount);
+
+        if ($direction === Deal::DIRECTION_LONG) {
+            return $remaining * (float) $order->price;
+        }
+
+        return $remaining;
     }
 
     protected function loadLongBudgetsFromExchange(string $mode, float $factor): void

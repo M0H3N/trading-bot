@@ -118,6 +118,54 @@ class PaperTradingFlowTest extends TestCase
         Http::assertNothingSent();
     }
 
+    public function test_market_evaluation_skips_when_open_orders_exceed_available_budget(): void
+    {
+        Queue::fake();
+        config()->set('trading.mode', 'paper');
+        app(TradingSettingsService::class)->syncDefaults();
+        $this->setting('market_evaluation_enabled', '1');
+        $this->setting('trading_mode', 'paper');
+
+        $market = Market::query()->create([
+            'exchange' => 'wallex',
+            'symbol' => 'BTCTMN',
+            'base_asset' => 'BTC',
+            'quote_asset' => 'TMN',
+            'tick_size' => '1',
+            'step_size' => '1',
+            'last_price' => '1000000000',
+            'is_active' => true,
+        ]);
+
+        MarketBudget::query()->updateOrCreate(
+            ['market_id' => $market->id, 'deal_type' => 'long'],
+            ['budget_asset' => 'TMN', 'budget' => '30000000', 'used_budget' => '10000000'],
+        );
+
+        TradingOrder::query()->create([
+            'market_id' => $market->id,
+            'exchange' => 'wallex',
+            'symbol' => 'BTCTMN',
+            'client_id' => 'orphan-open-entry',
+            'mode' => 'paper',
+            'side' => 'buy',
+            'type' => 'limit',
+            'status' => 'open',
+            'price' => '1000000000',
+            'amount' => '0.025',
+            'filled_amount' => '0',
+            'quote_amount' => '25000000',
+        ]);
+
+        Http::fake();
+
+        $order = app(MarketEvaluationService::class)->evaluate($market);
+
+        $this->assertNull($order);
+        $this->assertDatabaseCount('orders', 1);
+        Http::assertNothingSent();
+    }
+
     public function test_paper_order_status_fills_against_top_of_book(): void
     {
         $market = Market::query()->create([
