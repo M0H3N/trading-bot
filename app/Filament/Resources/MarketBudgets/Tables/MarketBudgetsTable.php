@@ -18,14 +18,25 @@ class MarketBudgetsTable
                     ->formatStateUsing(fn (string $state): string => strtoupper($state))
                     ->color(fn (string $state): string => $state === 'short' ? 'warning' : 'info'),
                 TextColumn::make('budget_asset')->label('Asset'),
-                TextColumn::make('budget')->numeric(decimalPlaces: 2)->sortable(),
-                TextColumn::make('used_budget')->numeric(decimalPlaces: 2)->sortable(),
+                TextColumn::make('budget')
+                    ->formatStateUsing(fn ($state, $record): string => self::formatAmount($state, $record->budget_asset))
+                    ->sortable(),
+                TextColumn::make('used_budget')
+                    ->formatStateUsing(fn ($state, $record): string => self::formatAmount($state, $record->budget_asset))
+                    ->sortable(),
                 TextColumn::make('available_budget')
                     ->label('Available')
-                    ->numeric(decimalPlaces: 2)
-                    ->state(fn ($record): float => $record->availableBudget()),
+                    ->state(fn ($record): float => $record->availableBudget())
+                    ->formatStateUsing(fn ($state, $record): string => self::formatAmount($state, $record->budget_asset)),
                 TextColumn::make('updated_at')->dateTime()->sortable(),
             ])
             ->defaultSort('market.symbol');
+    }
+
+    protected static function formatAmount(mixed $amount, string $asset): string
+    {
+        $decimals = strtoupper($asset) === 'TMN' ? 2 : 8;
+
+        return number_format((float) $amount, $decimals, '.', ',');
     }
 }
