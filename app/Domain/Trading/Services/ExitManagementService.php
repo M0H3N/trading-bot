@@ -334,14 +334,6 @@ class ExitManagementService
 
     protected function resolveExitPrice(Deal $deal, Market $market, float $exitPercent): string
     {
-        $client = $this->exchanges->client($market->exchange, $deal->mode);
-        $book = $client->getOrderBook($market->symbol);
-        $bookLevel = $this->exitBookLevel($deal, $book);
-
-        if ($bookLevel !== null) {
-            return number_format((float) $bookLevel->price, $market->tick_size, '.', '');
-        }
-
         return $this->formatExitPrice($deal, $market, $exitPercent);
     }
 

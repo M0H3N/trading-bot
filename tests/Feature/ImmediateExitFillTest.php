@@ -61,7 +61,7 @@ class ImmediateExitFillTest extends TestCase
                     'id' => 'exit-order-1',
                     'status' => 'FILLED',
                     'executedQty' => '0.01',
-                    'executedPrice' => '1060000000',
+                    'executedPrice' => '1001000000',
                 ],
             ]),
         ]);
@@ -74,14 +74,14 @@ class ImmediateExitFillTest extends TestCase
             'deal_id' => $deal->id,
             'side' => 'sell',
             'status' => 'filled',
-            'price' => '1060000000',
+            'price' => '1001000000',
             'filled_amount' => '0.01',
         ]);
         $this->assertDatabaseHas('trades', [
             'deal_id' => $deal->id,
             'side' => 'sell',
             'amount' => '0.010000000000',
-            'price' => '1060000000',
+            'price' => '1001000000',
         ]);
         $this->assertSame('closed', $deal->status);
         $this->assertNotNull($deal->closed_at);

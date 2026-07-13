@@ -77,7 +77,7 @@ class StopLossExitMonitoringTest extends TestCase
         $this->assertSame('stop_loss', $deal->fresh()->status);
     }
 
-    public function test_long_exit_places_sell_at_top_ask(): void
+    public function test_long_exit_places_sell_at_exit_percent_price(): void
     {
         config()->set('trading.mode', 'paper');
         app(TradingSettingsService::class)->syncDefaults();
@@ -116,7 +116,7 @@ class StopLossExitMonitoringTest extends TestCase
         $this->assertDatabaseHas('orders', [
             'deal_id' => $deal->id,
             'side' => 'sell',
-            'price' => '1003000000',
+            'price' => '1001000000',
         ]);
     }
 

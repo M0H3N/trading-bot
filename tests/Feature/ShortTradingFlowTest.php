@@ -155,7 +155,7 @@ class ShortTradingFlowTest extends TestCase
         $this->assertDatabaseHas('orders', [
             'deal_id' => $deal->id,
             'side' => 'buy',
-            'price' => '1002000000',
+            'price' => '1001997000',
         ]);
     }
 
