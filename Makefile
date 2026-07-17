@@ -163,7 +163,7 @@ up: ## Start containers
 	@docker compose -f $(COMPOSE_FILE) up -d
 
 .PHONY: down
-down: ## Stop containers
+down: ## -Stop containers
 	@docker compose -f $(COMPOSE_FILE) down
 
 .PHONY: restart

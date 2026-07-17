@@ -97,9 +97,13 @@ class ExitManagementService
         $market = $order->market()->firstOrFail();
         $book = $client->getOrderBook($order->symbol);
         $fair = $client->getFairPrice($order->symbol);
-        $isStopLoss = $deal->status === 'stop_loss';
+        $isStopLoss = $this->shouldActivateStopLoss($deal, (float) $order->price, (float) $fair->price);
 
         if ($isStopLoss) {
+            if ($deal->status !== 'stop_loss') {
+                $deal->forceFill(['status' => 'stop_loss'])->save();
+            }
+
             $bookLevel = $this->exitBookLevel($deal, $book);
 
             if ($bookLevel === null) {
@@ -117,23 +121,14 @@ class ExitManagementService
             $desiredPrice = (float) $bookLevel->price;
             $nextPercent = 0.0;
         } else {
+            if ($deal->status === 'stop_loss') {
+                $deal->forceFill(['status' => 'exiting'])->save();
+            }
+
             $floorPercent = (float) $this->settings->decimal('exit_top_ask_from_percent');
             $currentPercent = (float) ($order->metadata['exit_percent'] ?? $this->settings->decimal('initial_exit_percent'));
             $nextPercent = max($floorPercent, $currentPercent - (float) $this->settings->decimal('exit_step_percent'));
             $desiredPrice = $this->exitPriceFromPercent($deal, $nextPercent);
-            $stopLoss = $this->shouldActivateStopLoss($deal, (float) $fair->price);
-
-            if ($stopLoss) {
-                $deal->forceFill(['status' => 'stop_loss'])->save();
-                $bookLevel = $this->exitBookLevel($deal, $book);
-
-                if ($bookLevel === null) {
-                    return;
-                }
-
-                $desiredPrice = (float) $bookLevel->price;
-                $nextPercent = 0.0;
-            }
         }
 
         $replacementPrice = number_format($desiredPrice, $market->tick_size, '.', '');
@@ -356,15 +351,13 @@ class ExitManagementService
         return (float) $deal->entry_average_price * $multiplier;
     }
 
-    protected function shouldActivateStopLoss(Deal $deal, float $fairPrice): bool
+    protected function shouldActivateStopLoss(Deal $deal, float $exitOrderPrice, float $fairPrice): bool
     {
-        $entryPrice = (float) $deal->entry_average_price;
-
-        if ($entryPrice <= 0) {
+        if ($exitOrderPrice <= 0) {
             return false;
         }
 
-        $lossPercent = $this->adverseLossPercent($deal, $entryPrice, $fairPrice);
+        $lossPercent = $this->adverseLossPercent($exitOrderPrice, $fairPrice);
         $stopLossPercent = (float) $this->settings->decimal('stop_loss_percent');
         $forceStopLossPercent = (float) $this->settings->decimal('force_stop_loss_percent');
 
@@ -396,21 +389,9 @@ class ExitManagementService
         return Carbon::parse($breachAt)->lte(now()->subHour());
     }
 
-    protected function adverseLossPercent(Deal $deal, float $entryPrice, float $fairPrice): float
+    protected function adverseLossPercent(float $referencePrice, float $fairPrice): float
     {
-        if ($deal->isLong()) {
-            if ($fairPrice >= $entryPrice) {
-                return 0.0;
-            }
-
-            return ($entryPrice - $fairPrice) / $entryPrice * 100;
-        }
-
-        if ($fairPrice <= $entryPrice) {
-            return 0.0;
-        }
-
-        return ($fairPrice - $entryPrice) / $entryPrice * 100;
+        return abs(($referencePrice - $fairPrice) / $fairPrice * 100);
     }
 
     protected function clearStopLossBreachMetadata(Deal $deal): void

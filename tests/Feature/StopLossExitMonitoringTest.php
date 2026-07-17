@@ -23,6 +23,8 @@ class StopLossExitMonitoringTest extends TestCase
         app(TradingSettingsService::class)->syncDefaults();
         $this->setting('exit_management_enabled', '1');
         $this->setting('trading_mode', 'paper');
+        $this->setting('stop_loss_percent', '1.00');
+        $this->setting('force_stop_loss_percent', '8.00');
 
         $market = Market::query()->create([
             'exchange' => 'wallex',
@@ -41,6 +43,7 @@ class StopLossExitMonitoringTest extends TestCase
             'entry_average_price' => '1000000000',
             'entry_amount' => '0.01',
             'exit_average_price' => '1003000000',
+            'metadata' => ['stop_loss_breach_at' => now()->subHours(2)->toIso8601String()],
             'opened_at' => now(),
         ]);
 
@@ -75,6 +78,76 @@ class StopLossExitMonitoringTest extends TestCase
         $this->assertSame('open', $order->status);
         $this->assertDatabaseCount('orders', 1);
         $this->assertSame('stop_loss', $deal->fresh()->status);
+    }
+
+    public function test_stop_loss_deal_returns_to_exiting_when_market_recovers(): void
+    {
+        config()->set('trading.mode', 'paper');
+        config()->set('trading.exit_interval', 0);
+        app(TradingSettingsService::class)->syncDefaults();
+        $this->setting('exit_management_enabled', '1');
+        $this->setting('trading_mode', 'paper');
+        $this->setting('stop_loss_percent', '1.00');
+        $this->setting('force_stop_loss_percent', '8.00');
+        $this->setting('initial_exit_percent', '0.10');
+        $this->setting('exit_top_ask_from_percent', '0.07');
+        $this->setting('exit_step_percent', '0.01');
+
+        $market = Market::query()->create([
+            'exchange' => 'wallex',
+            'symbol' => 'BTCTMN',
+            'base_asset' => 'BTC',
+            'quote_asset' => 'TMN',
+            'tick_size' => '1',
+            'step_size' => '1',
+            'is_active' => true,
+        ]);
+
+        $deal = Deal::query()->create([
+            'market_id' => $market->id,
+            'mode' => 'paper',
+            'status' => 'stop_loss',
+            'entry_average_price' => '1000000000',
+            'entry_amount' => '0.01',
+            'opened_at' => now(),
+        ]);
+
+        TradingOrder::query()->create([
+            'market_id' => $market->id,
+            'deal_id' => $deal->id,
+            'exchange' => 'wallex',
+            'symbol' => 'BTCTMN',
+            'client_id' => 'stop-loss-recover-test',
+            'mode' => 'paper',
+            'side' => 'sell',
+            'type' => 'limit',
+            'status' => 'open',
+            'price' => '1005000000',
+            'amount' => '0.01',
+            'metadata' => ['exit_percent' => 0],
+            'created_at' => now()->subMinute(),
+        ]);
+
+        // ~0.5% away from exit order — below stop_loss_percent, so leave stop_loss.
+        Http::fake([
+            'api.wallex.ir/v1/all-fairPrice' => Http::response(['result' => ['BTCTMN' => '1000000000', 'USDTTMN' => '70000']]),
+            'api.wallex.ir/v1/depth*' => Http::response(['result' => [
+                'bid' => [['price' => '999000000', 'quantity' => '1']],
+                'ask' => [['price' => '1001000000', 'quantity' => '1']],
+            ]]),
+        ]);
+
+        app(ExitManagementService::class)->manage($deal);
+
+        $deal->refresh();
+
+        $this->assertSame('exiting', $deal->status);
+        $this->assertDatabaseHas('orders', [
+            'deal_id' => $deal->id,
+            'side' => 'sell',
+            'status' => 'open',
+            'price' => '1000700000',
+        ]);
     }
 
     public function test_long_exit_places_sell_at_exit_percent_price(): void
