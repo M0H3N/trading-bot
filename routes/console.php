@@ -23,3 +23,7 @@ Schedule::command('trading:dispatch --scope=monitor')
 Schedule::command('trading:dispatch --scope=exit')
     ->name('trading:manage-exits')
     ->everyThirtySeconds();
+
+Schedule::command('trading:prune-stale')
+    ->name('trading:prune-stale')
+    ->everyMinute();
